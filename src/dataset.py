@@ -122,41 +122,28 @@ class Vocab():
 
 class batch():
     def __init__(self):
-        self.idx_src = []
-        self.idx_tgt = []
-        self.lsrc = []
-        self.ltgt = []
         self.src = []
         self.tgt = []
-        self.sign = []
-        self.align = [][]
-        self.maxlsrc = 0
-        self.maxltgt = 0
+        self.idx_src = [] #<cls> <s1> ... <sI> [<pad>]*
+        self.idx_tgt = [] #<sep> <t1> ... <tJ> [<pad>]*
+        self.lsrc = [] #I
+        self.ltgt = [] #J
+        self.a = []
+        self.indexs = []
 
     def __len__(self):
         return len(self.idx_src)
 
-    def add_single(self, src, idx_src): ### used for pre-training (MLM): uses <cls> <bos> ... <eos>
-        self.src.append(src)
-        self.tgt.append([])
-        self.idx_tgt.append([])
-        self.ltgt.append(0)
-        self.sign.append(0.0)
-
-        idx_src.insert(0,idx_bos)
-        idx_src.append(idx_eos)
+    def add_single(self, ind, src, idx_src): ### used for MLM: <cls> <s1> ... <sI> OR <cls> <t1> ... <tI> 
+        self.indexs.append(ind)
         idx_src.insert(0,idx_cls)
+        self.lsrc.append(len(idx_src)) #lsrc is the position of sI
+        self.src.append(src)
+        self.idx_src.append(idx_src) ### [<cls>, <s1>, ..., <sI>, <pad>, ...]
 
-        self.lsrc.append(len(idx_src))
-        if len(idx_src) < self.maxlsrc:
-            idx_src += [idx_pad]*(self.maxlsrc-len(idx_src)) 
-        elif len(idx_src) > self.maxlsrc:
-            self.maxlsrc = len(idx_src)
-            for i in range(len(self.idx_src)):
-                self.idx_src[i] += [idx_pad]*(self.maxlsrc-len(self.idx_src[i]))
-        self.idx_src.append(idx_src) ### [<cls>, <bos>, <s1>, <s2>, ..., <sn>, <eos>, <pad>, ...]   (lsrc is the position of <eos> +1)
 
-    def add_pair_join(self, src, idx_src, tgt, idx_tgt, train_swap): ### used for pre-training (MLM): uses <cls>, <bos> ... <eos> <sep> <bos> ... <eos>
+    def add_pair(self, ind, src, idx_src, tgt, idx_tgt, ali=None, train_swap=False): ### used for MLM and SIM (with alignments): <cls> <s1> ... <sI> [<pad>]* <sep> <t1> ... <tI> [<pad>]*
+        do_swap = False
         if train_swap and random.random() < 0.5:
             aux = list(tgt)
             tgt = list(src)
@@ -164,71 +151,43 @@ class batch():
             idx_aux = list(idx_tgt)
             idx_tgt = list(idx_src)
             idx_src = list(idx_aux)
+            do_swap = True
 
-        self.src.append(src)
-        self.tgt.append(tgt)
-        self.idx_tgt.append([])
-        self.ltgt.append(0)
-        self.sign.append(0.0)
-
-        idx_src.insert(0,idx_bos)
-        idx_src.append(idx_eos)
+        self.indexs.append(ind)
         idx_src.insert(0,idx_cls)
-
-        idx_tgt.insert(0,idx_bos)
-        idx_tgt.append(idx_eos)
         idx_tgt.insert(0,idx_sep)
-
-        idx_src += idx_tgt
-
-        self.lsrc.append(len(idx_src))
-        if len(idx_src) < self.maxlsrc:
-            idx_src += [idx_pad]*(self.maxlsrc-len(idx_src)) 
-        elif len(idx_src) > self.maxlsrc:
-            self.maxlsrc = len(idx_src)
-            for i in range(len(self.idx_src)):
-                self.idx_src[i] += [idx_pad]*(self.maxlsrc-len(self.idx_src[i]))
-        self.idx_src.append(idx_src) ### [<cls>, <bos>, <s1>, <s2>, ..., <sn>, <eos>, <sep>, <bos>, <s1>, <s2>, ..., <sn>, <eos>, <pad>, ...]   (lsrc is the position of last <eos> +1)
-
-    def add_pair(self, src, idx_src, tgt, idx_tgt, sign, train_swap): ### used for fine-tunning (SIM): uses <cls>, <bos> ... <eos> in both sides
-        if train_swap and random.random() < 0.5:
-            aux = list(tgt)
-            tgt = list(src)
-            src = list(aux)
-            idx_aux = list(idx_tgt)
-            idx_tgt = list(idx_src)
-            idx_src = list(idx_aux)
-
         self.src.append(src)
         self.tgt.append(tgt)
+        self.lsrc.append(len(idx_src)) #lsrc is the position of sI
+        self.ltgt.append(len(idx_tgt)) #ltgt is the position of tJ
+        self.idx_src.append(idx_src) ### [<cls>, <s1>, ..., <sI>, <pad>, ...]
+        self.idx_tgt.append(idx_tgt) ### [<sep>, <t1>, ..., <tJ>, <pad>, ...]
+        if ali is not None:
+            align = []
+            for a in ali:
+                s,t = map(int, a.split('-'))
+                if do_swap:
+                    align.append([t,s])
+                else:
+                    align.append([s,t])
+            self.a.append(align)
 
-        self.sign.append(sign)
 
-        idx_src.insert(0,idx_bos)
-        idx_src.append(idx_eos)
-        idx_src.insert(0,idx_cls)
+    def pad_and_align(self):
+        self.maxlsrc = max(self.lsrc)
+        self.maxltgt = max(self.ltgt)
 
-        idx_tgt.insert(0,idx_bos)
-        idx_tgt.append(idx_eos)
-        idx_tgt.insert(0,idx_cls)
+        for i in range(len(self.idx_src)):
+            self.idx_src[i] += [idx_pad]*(self.maxlsrc-len(self.idx_src[i])) 
 
-        self.lsrc.append(len(idx_src))
-        if len(idx_src) < self.maxlsrc:
-            idx_src += [idx_pad]*(self.maxlsrc-len(idx_src)) 
-        elif len(idx_src) > self.maxlsrc:
-            self.maxlsrc = len(idx_src)
-            for i in range(len(self.idx_src)):
-                self.idx_src[i] += [idx_pad]*(self.maxlsrc-len(self.idx_src[i]))
-        self.idx_src.append(idx_src) ### [<cls>, <bos>, <s1>, <s2>, ..., <sn>, <eos>, <pad>, ...]   (lsrc is the position of <eos> +1)
+        for j in range(len(self.idx_tgt)):
+            self.idx_tgt[j] += [idx_pad]*(self.maxltgt-len(self.idx_tgt[j]))
 
-        self.ltgt.append(len(idx_tgt))
-        if len(idx_tgt) < self.maxltgt:
-            idx_tgt += [idx_pad]*(self.maxltgt-len(idx_tgt)) 
-        elif len(idx_tgt) > self.maxltgt:
-            self.maxltgt = len(idx_tgt)
-            for i in range(len(self.idx_tgt)):
-                self.idx_tgt[i] += [idx_pad]*(self.maxltgt-len(self.idx_tgt[i]))
-        self.idx_tgt.append(idx_tgt) ### [<cls>, <bos>, <t1>, <t2>, ..., <tn>, <eos>, <pad>, ...]   (ltgt is the position of <eos> +1)
+        self.ali = np.empty((len(self.idx_src), self.maxlsrc, self.maxltgt))
+        self.ali.fill(1.0) # not aligned pairs (divergent)
+        for b in range(len(self.idx_src)):
+            for st in self.a[b]:
+                self.ali[b,st[0],st[1]] = -1.0 #is an aligned pair
 
 ####################################################################
 ### Dataset ########################################################
@@ -311,8 +270,6 @@ class Dataset():
         if allow_shuffle:
             logging.debug('sorting data to minimize padding')
             indexs = np.argsort(self.len)
-
-
 
 
     def __len__(self):

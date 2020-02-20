@@ -13,13 +13,13 @@ valid:
   - [ './data/ECB.val.en.gz',  './data/ECB.val.fr.gz'  ]
   - [ './data/EMEA.val.en.gz', './data/EMEA.val.fr.gz' ]
   - [ './data/KDE4.val.en.gz', './data/KDE4.val.fr.gz' ]
-max_length: 160
-swap_bitext: true
+max_length: 80
+train_swap: 0.5
 batch_size: [32, 32]
-train_steps: 1000000
+train_steps: 0
 steps: 
   mlm: { p_mask: 0.15, r_same: 0.1, r_rand: 0.1 }
-  sim: { run: false, p_uneven: 0.5, pooling: 'align', R: 1.0, align_scale: 0.001 } #max, mean, cls, align
+  sim: { run: false, p_uneven: 0.5, loss: 'align', R: 1.0, align_scale: 0.001 } #max, mean, cls, align
 checkpoint_every_steps: 5000
 validation_every_steps: 5000
 report_every_steps: 100

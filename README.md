@@ -39,16 +39,10 @@ Learn example:
 CUDA_VISIBLE_DEVICES=0 python3 sentalign.py -dir exp1 -learn cfg/train.yml -model cfg/model.yml -optim cfg/optim.yml
 ```
 
-cat cfg/model.yml
+cat config.yml
 ```
-tokenization:
-	src: { bpe_model_path: ./data/joint_enfr.30k.bpe, mode: conservative, joiner_annotate: true }
-	tgt: { bpe_model_path: ./data/joint_enfr.30k.bpe, mode: conservative, joiner_annotate: true }
-vocab: ./data/en.vocab
-example_format:
-	src: { cls: true, bos: true, eos: true }
-        sep: True
-	tgt: { cls: false, bos: true, eos: true }
+tokenization: { bpe_model_path: ./data/joint_enfr.30k.bpe, mode: conservative, joiner_annotate: false }
+vocab: ./data/enfr.vocab
 num_layers: 6
 hidden_size: 512
 feedforward_size: 2048
@@ -56,27 +50,23 @@ num_heads: 8
 emb_size: 512
 dropout: 0.1
 cuda: true
-```
-
-cat cfg/optim.yml
-```
 learning_rate: 0.0001
 beta1: 0.9
 beta2: 0.98
 eps: 0.000000001
 warmup_steps: 10000
 factor: 1.0
-smoothing: 0.1
+label_smoothing: 0.1
 ```
 
-cat cfg/train.yml
+cat train.yml
 ```
 valid:
 	src: [ ./data/ECB.val.en.gz, ./data/EMEA.val.en.gz, ./data/KDE4.val.en.gz ]
-   	tgt: [ ./data/ECB.val.fr.gz, ./data/EMEA.val.fr.gz, ./data/KDE4.val.fr.gz ]
+  tgt: [ ./data/ECB.val.fr.gz, ./data/EMEA.val.fr.gz, ./data/KDE4.val.fr.gz ]
 train:
 	src: [ ./data/ECB.trn.en.gz, ./data/EMEA.trn.en.gz, ./data/KDE4.trn.en.gz ]
-        tgt: [ ./data/ECB.trn.fr.gz, ./data/EMEA.trn.fr.gz, ./data/KDE4.trn.fr.gz ]
+  tgt: [ ./data/ECB.trn.fr.gz, ./data/EMEA.trn.fr.gz, ./data/KDE4.trn.fr.gz ]
 max_length: 160
 batch_size: 32
 train_steps: 1000000

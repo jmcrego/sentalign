@@ -1,4 +1,4 @@
-token: { bpe_model_path: ./data/joint_enfr.30k.bpe, mode: conservative, joiner_annotate: true }
+token: { bpe_model_path: ./data/joint_enfr.30k.bpe, mode: conservative, joiner_annotate: false }
 vocab: ./data/enfr.vocab
 num_layers: 6
 hidden_size: 512
