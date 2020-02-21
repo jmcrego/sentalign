@@ -6,7 +6,7 @@ import random
 import torch
 from shutil import copyfile
 from src.tools import create_logger
-from src.dataset import Vocab, DataSet, OpenNMTTokenizer
+from src.dataset import Vocab, Dataset, OpenNMTTokenizer
 from src.model import make_model
 from src.trainer import Trainer
 from src.infer import Infer
@@ -120,6 +120,19 @@ def create_experiment(opts):
 
 if __name__ == "__main__":
     
+    create_logger(None,'debug')
+#    cfg_token = { 'bpe_model_path': './data/joint_enfr.30k.bpe', 'mode': 'conservative', 'joiner_annotate': False }
+    cfg_token = { 'mode': 'space', 'joiner_annotate': False }
+    token = OpenNMTTokenizer(**cfg_token)
+    cfg_vocab = './data/vocab'
+    vocab = Vocab(cfg_vocab)
+    data = Dataset(token,vocab,max_length=80)
+#    data.add1file('./data/ECB.trn.en.gz')
+#    data.add1file('./data/ECB.trn.fr.gz')
+    data.add3files('./data/clean.news-commentary-v14.en.trn.tokc','./data/clean.news-commentary-v14.fr.trn.tokc','./data/clean.news-commentary-v14.en.trn.tokc.en2fr.gdfa')
+#    data.build_batches(4,has_pair=True,has_align=True)
+    sys.exit()
+
     opts = Argv(sys.argv)
 
     if opts.seed > 0:

@@ -10,7 +10,7 @@ from collections import defaultdict
 from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Variable
-from src.dataset import Vocab, DataSet, OpenNMTTokenizer, batch
+from src.dataset import Vocab, Dataset, OpenNMTTokenizer, batch
 from src.model import make_model
 from src.optim import NoamOpt, LabelSmoothing, CosineSIM, AlignSIM, ComputeLossMLM, ComputeLossSIM
 
