@@ -134,13 +134,48 @@ class ComputeLossMLM:
         return loss #not normalized
 
 
-class ComputeLossSIM:
-    def __init__(self, criterion, pooling, R, align_scale, opt=None):
+class ComputeLossALI:
+    def __init__(self, criterion, step_ali, opt=None):
+        self.criterion = criterion
+        self.align_scale = step_ali['align_scale']
+        self.R = step_ali['R']
+        self.opt = opt
+
+    def __call__(self, hs, ht, slen, tlen, y, mask_s, mask_t): 
+        #hs [bs, sl, es] embeddings of source words after encoder (<cls> <bos> s1 s2 ... sI <eos> <pad> ...)
+        #ht [bs, tl, es] embeddings of target words after encoder (<cls> <bos> t1 t2 ... tJ <eos> <pad> ...)
+        #slen [bs] length of source sentences (I) in batch
+        #tlen [bs] length of target sentences (J) in batch
+        #y [bs] parallel(-1.0)/divergent(1.0) value of each sentence pair
+        #mask_s [bs,sl]
+        #mask_t [bs,tl]
+        #mask_st [bs,sl,tl]
+        mask_s = mask_s.unsqueeze(-1).type(torch.float64)
+        mask_t = mask_t.unsqueeze(-1).type(torch.float64)
+
+        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
+        if torch.isnan(S_st).any():
+            logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
+        #print('S_st',S_st[0])
+        aggr_t = self.aggr(S_st,mask_s) #equation (2) #for each tgt word, consider the aggregated matching scores over the source sentence words
+        loss = self.criterion(aggr_t,y,mask_t.squeeze())
+        return loss #not normalized
+
+    def aggr(self,S_st,mask_s): #foreach tgt word finds the aggregation over all src words
+#        print('mask_s',mask_s[0])
+        exp_rS = torch.exp(S_st * self.R)
+#        print('exp_rS',exp_rS[0])
+        sum_exp_rS = torch.sum(exp_rS * mask_s,dim=1) #sum over all source words (source words nor used are masked)
+#        print('sum_exp_rS',sum_exp_rS[0])
+        log_sum_exp_rS_div_R = torch.log(sum_exp_rS) / self.R
+#        print('log_sum_exp_rS_div_R',log_sum_exp_rS_div_R[0])
+        return log_sum_exp_rS_div_R
+
+class ComputeLossCOS:
+    def __init__(self, criterion, pooling, opt=None):
         self.criterion = criterion
         self.pooling = pooling
-        self.align_scale = align_scale
         self.opt = opt
-        self.R = R
 
 
     def __call__(self, hs, ht, slen, tlen, y, mask_s, mask_t): 
@@ -170,30 +205,12 @@ class ComputeLossSIM:
             t = ht[:, 0, :] # take embedding of first token <cls>
             loss = self.criterion(s, t, y)
 
-        elif self.pooling == 'align':
-            S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
-            if torch.isnan(S_st).any():
-                logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
-            #print('S_st',S_st[0])
-            aggr_t = self.aggr(S_st,mask_s) #equation (2) #for each tgt word, consider the aggregated matching scores over the source sentence words
-            loss = self.criterion(aggr_t,y,mask_t.squeeze())
-
         else:
             logging.error('bad pooling method {}'.format(self.pooling))
             sys.exit()
 
         return loss #not normalized
 
-
-    def aggr(self,S_st,mask_s): #foreach tgt word finds the aggregation over all src words
-#        print('mask_s',mask_s[0])
-        exp_rS = torch.exp(S_st * self.R)
-#        print('exp_rS',exp_rS[0])
-        sum_exp_rS = torch.sum(exp_rS * mask_s,dim=1) #sum over all source words (source words nor used are masked)
-#        print('sum_exp_rS',sum_exp_rS[0])
-        log_sum_exp_rS_div_R = torch.log(sum_exp_rS) / self.R
-#        print('log_sum_exp_rS_div_R',log_sum_exp_rS_div_R[0])
-        return log_sum_exp_rS_div_R
 
 
 

@@ -196,6 +196,7 @@ class batch():
         if len(self.a) > 0:
             self.ali = np.array(self.ali)
 
+'''
         print('indexs')
         print(self.indexs)
         print('[bs, ls, lt]')
@@ -216,6 +217,7 @@ class batch():
         print(self.a)
         print('ali')
         print(self.ali)
+'''
 
 ####################################################################
 ### Dataset ########################################################
@@ -229,8 +231,18 @@ class Dataset():
         self.max_length = max_length
         self.is_infinite = is_infinite
         self.idx = []
-        self.snt = []
+        self.snt = [] #only to debug
 
+    def tokenize(self,l):
+        if self.token is not None:
+            tok = self.token.tokenize(l.strip(' \n'))
+        else:
+            tok = l.strip(' \n').split()
+        return tok
+
+    def tok2idx(self, tok):
+        idx = [self.vocab[x] for x in tok]
+        return idx
 
     def add3files(self, fsrc, ftgt, fali):
         if fsrc.endswith('.gz'): 
@@ -247,28 +259,30 @@ class Dataset():
             fa = io.open(fali, 'r', encoding='utf-8', newline='\n', errors='ignore')
 
 
-        ntoks = 0
-        nunks = 0
+        ntoks_src = 0
+        nunks_src = 0
+        ntoks_tgt = 0
+        nunks_tgt = 0
         nsent = 0
         nfilt = 0
         for ls, lt, la in zip(fs,ft,fa):
-            ls = ls.strip(' \n')
-            lt = lt.strip(' \n')
-            la = la.strip(' \n')
-            sidx = [self.vocab[s] for s in self.token.tokenize(ls)]
-            nunks += sidx.count(idx_unk) 
-            ntoks += len(sidx)
-            tidx = [self.vocab[t] for t in self.token.tokenize(lt)]
-            nunks += tidx.count(idx_unk) 
-            ntoks += len(tidx)
-            alig = la.split()
+            ssnt = self.tokenize(ls)
+            sidx = self.tok2idx(ssnt)
+            tsnt = self.tokenize(lt)
+            tidx = self.tok2idx(tsnt)
             if self.max_length > 0 and (len(sidx) > self.max_length or len(tidx) > self.max_length):
                 nfilt += 1
                 continue
+            ### align
+            alig = la.strip(' \n').split()
             nsent += 1
+            nunks_src += sidx.count(idx_unk)
+            nunks_tgt += tidx.count(idx_unk) 
+            ntoks_src += len(sidx)
+            ntoks_tgt += len(tidx)
             self.idx.append([sidx,tidx,alig])
-            self.snt.append([ls,lt])
-        logging.info('found {} sentences ({} filtered), {} tokens ({:.3f}% OOVs) in files: [{},{},{}]'.format(nsent,nfilt,ntoks,100.0*nunks/ntoks,fsrc,ftgt,fali))
+            self.snt.append([ssnt,tsnt])
+        logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt,fali))
 
 
     def add2files(self, fsrc, ftgt):
@@ -281,26 +295,38 @@ class Dataset():
         else: 
             ft = io.open(ftgt, 'r', encoding='utf-8', newline='\n', errors='ignore')
 
-        ntoks = 0
-        nunks = 0
+        ntoks_src = 0
+        nunks_src = 0
+        ntoks_tgt = 0
+        nunks_tgt = 0
         nsent = 0
         nfilt = 0
         for ls, lt in zip(fs,ft):
-            ls = ls.strip(' \n')
-            lt = lt.strip(' \n')
-            sidx = [self.vocab[s] for s in self.token.tokenize(ls)]
-            nunks += sidx.count(idx_unk) 
-            ntoks += len(sidx)
-            tidx = [self.vocab[t] for t in self.token.tokenize(lt)]
-            nunks += tidx.count(idx_unk) 
-            ntoks += len(tidx)
+            ### src tokenize
+            if self.token is not None:
+                ssnt = self.token.tokenize(ls.strip(' \n'))
+            else:
+                ssnt = ls.strip(' \n').split()
+            ### src vocab
+            sidx = [self.vocab[s] for s in ssnt]
+            ### tgt tokenize
+            if self.token is not None:
+                tsnt = self.token.tokenize(lt.strip(' \n'))
+            else:
+                tsnt = lt.strip(' \n').split()
+            ### tgt vocab
+            tidx = [self.vocab[t] for t in tsnt]
             if self.max_length > 0 and (len(sidx) > self.max_length or len(tidx) > self.max_length):
                 nfilt += 1
                 continue
             nsent += 1
-            self.idx.append([sidx,tidx,[]])
+            nunks_src += sidx.count(idx_unk)
+            nunks_tgt += tidx.count(idx_unk) 
+            ntoks_src += len(sidx)
+            ntoks_tgt += len(tidx)
+            self.idx.append([sidx,tidx])
             self.snt.append([ls,lt])
-        logging.info('found {} sentences ({} filtered), {} tokens ({:.3f}% OOVs) in files: [{},{}]'.format(nsent,nfilt,ntoks,100.0*nunks/ntoks,fsrc,ftgt))
+        logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt,fali))
 
 
     def add1file(self, fsrc):
@@ -314,40 +340,45 @@ class Dataset():
         nsent = 0
         nfilt = 0
         for ls in fs:
-            ls = ls.strip(' \n')
-            sidx = [self.vocab[s] for s in self.token.tokenize(ls)]
-            nunks += sidx.count(idx_unk) 
-            ntoks += len(sidx)
+            ### src tokenize
+            if self.token is not None:
+                ssnt = self.token.tokenize(ls.strip(' \n'))
+            else:
+                ssnt = ls.strip(' \n').split()
+            ### src vocab
+            sidx = [self.vocab[s] for s in ssnt]
             if self.max_length > 0 and len(sidx) > self.max_length:
                 nfilt += 1
                 continue
             nsent += 1
-            self.idx.append([sidx,[],[]])
-            self.snt.append([ls,[]])
+            nunks += sidx.count(idx_unk) 
+            ntoks += len(sidx)
+            self.idx.append([sidx])
+            self.snt.append([ssnt])
         logging.info('found {} sentences ({} filtered), {} tokens ({:.3f}% OOVs) in files: [{}]'.format(nsent,nfilt,ntoks,100.0*nunks/ntoks,fsrc))
 
 
-    def build_batches(self, batch_size, has_pair=False, has_align=False):
+    def build_batches(self, batch_size):
         self.batches = []
         self.batch_size = batch_size
-        indexs = [i for i in range(len(self.idx))] #indexs in original order
-        logging.debug('sorting data by source/target sentence length to minimize padding')
-        data_len = [len(x[0]) for x in self.idx]
-        if has_pair:
+        if len(self.idx) == 0:
+            logging.error('no examples available to build batches')
+            sys.exit()
+
+        if len(self.idx[0]) > 1:
+            logging.debug('sorting data by source/target sentence length to minimize padding over {} examples'.format(len(self.idx)))
+            data_len1 = [len(x[0]) for x in self.idx]
             data_len2 = [len(x[1]) for x in self.idx]
-            indexs = np.lexsort((data_len,data_len2))
+            indexs = np.lexsort((data_len1,data_len2))
         else:
-            indexs = np.argsort(data_len)
+            logging.debug('sorting data by source sentence length to minimize padding over {} examples'.format(len(self.idx)))
+            data_len1 = [len(x[0]) for x in self.idx]
+            indexs = np.argsort(data_len1)
 
         currbatch = batch() 
         for i in range(len(indexs)):
             index = indexs[i]
-            if has_pair and len(self.idx[index]) < 2:
-                continue
-            if has_align and len(self.idx[index]) < 3:
-                continue
             currbatch.add(index,self.idx[index],self.snt[index])
-
             if len(currbatch) == self.batch_size or i == len(indexs)-1: ### record new batch
                 self.batches.append(currbatch.pad())
                 currbatch = batch()

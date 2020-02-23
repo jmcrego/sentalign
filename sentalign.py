@@ -18,10 +18,11 @@ class Argv():
         self.prog = argv.pop(0)
         self.usage = '''usage: {} -dir DIR [-learn YAML] [-infer YAML] [-pooling STRING] [-config YAML] [-seed INT] [-log FILE] [-loglevel LEVEL]
    -dir        DIR : checkpoint directory (must not exist when learning from scratch)
-   -infer     YAML : test config file (inference mode)
+
    -learn     YAML : train config file (learning mode)
    -config    YAML : modeling/optim config file (needed when learning from scratch)
 
+   -infer     YAML : test config file (inference mode)
    -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default mean)
 
    -seed       INT : seed value (default 12345)
@@ -103,35 +104,31 @@ def create_experiment(opts):
         mycfg = yaml.load(file, Loader=yaml.FullLoader)
         logging.debug('Read config : {}'.format(mycfg))
     os.mkdir(opts.dir)
-    ### copy vocab/bpe/config.yml files to opts.dir
+    ### copy vocab/config.yml files to opts.dir
     copyfile(mycfg['vocab'], opts.dir+"/vocab")
     logging.info('copied {} => {}'.format(mycfg['vocab'], opts.dir+"/vocab"))
-    ### copy bpe_model
-    copyfile(mycfg['token']['bpe_model_path'], opts.dir+"/bpe_model")
-    logging.info('copied {} => {}'.format(mycfg['token']['bpe_model_path'], opts.dir+"/bpe_model"))
-    ### update vocb/bpe files in opts.fmod 
-    mycfg['vocab'] = opts.dir+"/vocab"
-    mycfg['token']['bpe_model_path'] = opts.dir+"/bpe_model"
+    #delete vocab from config file (it is always dir/vocab)
+    del mycfg['vocab']
     ### dump mycfg into opts.dir/config.yml
     with open(opts.dir+"/config.yml", 'w') as file:
         _ = yaml.dump(mycfg, file)
     opts.fcfg = opts.dir+"/config.yml"
+    logging.info('Created experiment: {}'.format(opts.dir))
 
 
 if __name__ == "__main__":
     
-    create_logger(None,'debug')
-#    cfg_token = { 'bpe_model_path': './data/joint_enfr.30k.bpe', 'mode': 'conservative', 'joiner_annotate': False }
-    cfg_token = { 'mode': 'space', 'joiner_annotate': False }
-    token = OpenNMTTokenizer(**cfg_token)
-    cfg_vocab = './data/vocab'
-    vocab = Vocab(cfg_vocab)
-    data = Dataset(token,vocab,max_length=80)
-#    data.add1file('./data/ECB.trn.en.gz')
-#    data.add1file('./data/ECB.trn.fr.gz')
-    data.add3files('./data/clean.news-commentary-v14.en.trn.tokc','./data/clean.news-commentary-v14.fr.trn.tokc','./data/clean.news-commentary-v14.en.trn.tokc.en2fr.gdfa')
-#    data.build_batches(4,has_pair=True,has_align=True)
-    sys.exit()
+    #create_logger(None,'debug')
+    #cfg_token = { 'bpe_model_path': './data/joint_enfr.30k.bpe', 'mode': 'conservative', 'joiner_annotate': False }
+    #cfg_token = { 'mode': 'conservative', 'joiner_annotate': False }
+    #token = OpenNMTTokenizer(**cfg_token)
+    #token = None
+    #vocab = Vocab('./data/vocab')
+    #data = Dataset(token,vocab,max_length=0,is_infinite=False)
+    #data.add3files('./data/clean.news-commentary-v14.en.trn.tokc','./data/clean.news-commentary-v14.fr.trn.tokc','./data/clean.news-commentary-v14.en.trn.tokc.en2fr.gdfa')
+    #data.add3files('./data/clean.GNOME.en-fr.en.trn.tokc','./data/clean.GNOME.en-fr.fr.trn.tokc','./data/clean.GNOME.en-fr.en.trn.tokc.en2fr.gdfa')
+    #data.build_batches(4)
+    #sys.exit()
 
     opts = Argv(sys.argv)
 
@@ -143,8 +140,6 @@ if __name__ == "__main__":
         logging.debug('random.seed set to {}'.format(opts.seed))
 
     if not os.path.exists(opts.dir):
-        ### create directory with all config/vocab/bpe files...
-        ### copying also model.yml and optim.yml which cannot be changed anymore
         create_experiment(opts)
 
     with open(opts.dir+"/config.yml") as file:
@@ -152,9 +147,6 @@ if __name__ == "__main__":
         logging.debug('Read config : {}'.format(opts.cfg))
 
     if opts.finfer is not None:
-        #with open(opts.finfer) as file:
-        #    opts.test = yaml.load(file, Loader=yaml.FullLoader)
-        #    logging.debug('Read config for inference : {}'.format(opts.test))
         infer = Infer(opts)
         infer(opts.finfer)
     else:

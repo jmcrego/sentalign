@@ -16,7 +16,7 @@ from torch.autograd import Variable
 from src.dataset import Vocab, Dataset, OpenNMTTokenizer, batch
 from src.trainer import sequence_mask
 from src.model import make_model
-from src.optim import NoamOpt, LabelSmoothing, CosineSIM, AlignSIM, ComputeLossMLM, ComputeLossSIM
+from src.optim import NoamOpt, LabelSmoothing, CosineSIM, AlignSIM, ComputeLossMLM, ComputeLossALI, ComputeLossCOS
 
 
 class Infer():

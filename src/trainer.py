@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 from src.dataset import Vocab, Dataset, OpenNMTTokenizer, batch
 from src.model import make_model
-from src.optim import NoamOpt, LabelSmoothing, CosineSIM, AlignSIM, ComputeLossMLM, ComputeLossSIM
+from src.optim import NoamOpt, LabelSmoothing, CosineSIM, AlignSIM, ComputeLossMLM, ComputeLossALI, ComputeLossCOS
 
 
 def sequence_mask(lengths, mask_n_initials=0):
@@ -56,11 +56,9 @@ class Trainer():
         self.report_every_steps = opts.train['report_every_steps']
         self.validation_every_steps = opts.train['validation_every_steps']
         self.checkpoint_every_steps = opts.train['checkpoint_every_steps']
-        self.train_steps = opts.train['train_steps']
-        self.vocab = Vocab(opts.cfg['vocab'])
+        self.vocab = Vocab(opts.dir+'/vocab')
         self.cuda = opts.cfg['cuda']
         self.n_steps_so_far = 0
-        self.average_last_n = opts.train['average_last_n']
         self.steps = opts.train['steps']
         V = len(self.vocab)
         N = opts.cfg['num_layers']
@@ -78,53 +76,49 @@ class Trainer():
         batch_size = opts.train['batch_size']
         max_length = opts.train['max_length']
         swap_bitext = opts.train['swap_bitext'] 
-        self.sim_run = self.steps['sim']['run']
-        p_uneven = self.steps['sim']['p_uneven']
-        sim_pooling = self.steps['sim']['pooling']
-        R = self.steps['sim']['R']
-        align_scale = self.steps['sim']['align_scale']
-        self.p_mask = self.steps['mlm']['p_mask']
-        self.r_same = self.steps['mlm']['r_same']
-        self.r_rand = self.steps['mlm']['r_rand']
-        if 1.0 - self.r_same - self.r_rand <= 0.0:
-            logging.error('r_mask={} <= zero'.format(1.0 - self.r_same - self.r_rand))
-            sys.exit()
+        self.step_mlm = opts.train['steps']['mlm']
+        self.step_ali = opts.train['steps']['ali']
+        self.step_max = opts.train['steps']['max']
+        self.step_cls = opts.train['steps']['cls']
+        self.step_mean = opts.train['steps']['mean']
+
+#        r_same = step_mlm['r_same']
+#        r_rand = step_mlm['r_rand']
+#        p_mask = step_mlm['p_mask']
+#        p_single = step_mlm['p_single']
+#        R = step_ali['R']
+#        align_scale = step_ali['align_scale']
 
         self.model = make_model(V, N=N, d_model=d_model, d_ff=d_ff, h=h, dropout=dropout)
         if self.cuda:
             self.model.cuda()
 
         self.optimizer = NoamOpt(d_model, factor, warmup_steps, torch.optim.Adam(self.model.parameters(), lr=lrate, betas=(beta1, beta2), eps=eps))
-
-        if self.steps['sim']['run']:
-            if self.steps['sim']['pooling'] == 'align':
-                self.criterion = AlignSIM()
-            else:
-                self.criterion = CosineSIM()
-        else:
-            #self.criterion = CrossEntropy(padding_idx=self.vocab.idx_pad)
-            self.criterion = LabelSmoothing(size=V, padding_idx=self.vocab.idx_pad, smoothing=label_smoothing)
+        self.crit_mlm = LabelSmoothing(size=V, padding_idx=self.vocab.idx_pad, smoothing=label_smoothing)
+        self.crit_ali = AlignSIM()
+        self.crit_cos = CosineSIM()
 
         if self.cuda:
-            self.criterion.cuda()
+            self.crit_mlm.cuda()
+            self.crit_ali.cuda()
+            self.crit_cos.cuda()
 
         self.load_checkpoint() #loads if exists
-
-        if self.sim_run:
-            self.computeloss = ComputeLossSIM(self.criterion, sim_pooling, R, align_scale, self.optimizer)
-        else:
-            self.computeloss = ComputeLossMLM(self.model.generator, self.criterion, self.optimizer)
-        token = OpenNMTTokenizer(**opts.cfg['token'])
-
+        self.computeloss_mlm = ComputeLossMLM(self.model.generator, self.crit_mlm, self.optimizer)
+        self.computeloss_ali = ComputeLossALI(self.crit_ali, self.step_ali, self.optimizer)
+        self.computeloss_cos = ComputeLossCOS(self.crit_ali, self.optimizer)
 
         logging.info('read Train data')
-        self.data_train = DataSet(self.steps,opts.train['train'],token,self.vocab,sim_run=self.sim_run,batch_size=batch_size[0],max_length=max_length,p_uneven=p_uneven,swap_bitext=swap_bitext,allow_shuffle=True,is_infinite=True)
+        self.data_train = Dataset(None,self.vocab,max_length=max_length,is_infinite=True)
+        for (fs,ft,fa) in opts.train['train']:
+            self.data_train.add3files(fs,ft,fa)
+        self.data_train.build_batches(batch_size[0])
 
-        if 'valid' in opts.train:
-            logging.info('read Valid data')
-            self.data_valid = DataSet(self.steps,opts.train['valid'],token,self.vocab,sim_run=self.sim_run,batch_size=batch_size[1],max_length=max_length,p_uneven=p_uneven,swap_bitext=swap_bitext,allow_shuffle=True,is_infinite=False)
-        else: 
-            self.data_valid = None
+        logging.info('read Valid data')
+        self.data_valid = Dataset(None,self.vocab,max_length=max_length,is_infinite=False)
+        for (fs,ft,fa) in opts.train['valid']:
+            self.data_valid.add3files(fs,ft,fa)
+        self.data_valid.build_batches(batch_size[1])
 
 
     def __call__(self):
@@ -133,10 +127,11 @@ class Trainer():
         ts = stats()
         for batch in self.data_train:
             self.model.train()
+            losses = []
             ###
             ### run step
             ###
-            if not self.sim_run: ### pre-training (MLM)
+            if self.step_mlm['p'] > 0.0 and random.random() < self.step_mlm['p']: ### pre-training (MLM)
                 step = 'mlm'
                 x, x_mask, y_mask = self.mlm_batch_cuda(batch)
                 #x contains the true words in batch after masking some of them (<msk>, random, same)
