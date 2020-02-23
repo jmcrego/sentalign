@@ -53,13 +53,19 @@ class Trainer():
 
     def __init__(self, opts):
         self.dir = opts.dir
+        self.vocab = Vocab(opts.dir+'/vocab')
+        self.n_steps_so_far = 0
         self.report_every_steps = opts.train['report_every_steps']
         self.validation_every_steps = opts.train['validation_every_steps']
         self.checkpoint_every_steps = opts.train['checkpoint_every_steps']
-        self.vocab = Vocab(opts.dir+'/vocab')
-        self.cuda = opts.cfg['cuda']
-        self.n_steps_so_far = 0
-        self.steps = opts.train['steps']
+        self.batch_size = opts.train['batch_size']
+        self.max_length = opts.train['max_length']
+        self.swap_bitext = opts.train['swap_bitext'] 
+        self.step_mlm = opts.train['steps']['mlm']
+        self.step_ali = opts.train['steps']['ali']
+        self.step_cos = opts.train['steps']['cos']
+
+
         V = len(self.vocab)
         N = opts.cfg['num_layers']
         d_model = opts.cfg['hidden_size']
@@ -73,21 +79,7 @@ class Trainer():
         beta1 = opts.cfg['beta1']
         beta2 = opts.cfg['beta2']
         eps = opts.cfg['eps']
-        batch_size = opts.train['batch_size']
-        max_length = opts.train['max_length']
-        swap_bitext = opts.train['swap_bitext'] 
-        self.step_mlm = opts.train['steps']['mlm']
-        self.step_ali = opts.train['steps']['ali']
-        self.step_max = opts.train['steps']['max']
-        self.step_cls = opts.train['steps']['cls']
-        self.step_mean = opts.train['steps']['mean']
-
-#        r_same = step_mlm['r_same']
-#        r_rand = step_mlm['r_rand']
-#        p_mask = step_mlm['p_mask']
-#        p_single = step_mlm['p_single']
-#        R = step_ali['R']
-#        align_scale = step_ali['align_scale']
+        self.cuda = opts.cfg['cuda']
 
         self.model = make_model(V, N=N, d_model=d_model, d_ff=d_ff, h=h, dropout=dropout)
         if self.cuda:
@@ -106,19 +98,19 @@ class Trainer():
         self.load_checkpoint() #loads if exists
         self.computeloss_mlm = ComputeLossMLM(self.model.generator, self.crit_mlm, self.optimizer)
         self.computeloss_ali = ComputeLossALI(self.crit_ali, self.step_ali, self.optimizer)
-        self.computeloss_cos = ComputeLossCOS(self.crit_ali, self.optimizer)
+        self.computeloss_cos = ComputeLossCOS(self.crit_ali, self.step_cos, self.optimizer)
 
         logging.info('read Train data')
-        self.data_train = Dataset(None,self.vocab,max_length=max_length,is_infinite=True)
+        self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True)
         for (fs,ft,fa) in opts.train['train']:
             self.data_train.add3files(fs,ft,fa)
-        self.data_train.build_batches(batch_size[0])
+        self.data_train.build_batches(self.batch_size[0])
 
         logging.info('read Valid data')
-        self.data_valid = Dataset(None,self.vocab,max_length=max_length,is_infinite=False)
+        self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False)
         for (fs,ft,fa) in opts.train['valid']:
             self.data_valid.add3files(fs,ft,fa)
-        self.data_valid.build_batches(batch_size[1])
+        self.data_valid.build_batches(self.batch_size[1])
 
 
     def __call__(self):
@@ -131,7 +123,7 @@ class Trainer():
             ###
             ### run step
             ###
-            if self.step_mlm['p'] > 0.0 and random.random() < self.step_mlm['p']: ### pre-training (MLM)
+            if self.step_mlm['w'] > 0.0: ### pre-training (MLM)
                 step = 'mlm'
                 x, x_mask, y_mask = self.mlm_batch_cuda(batch)
                 #x contains the true words in batch after masking some of them (<msk>, random, same)
@@ -144,11 +136,11 @@ class Trainer():
                 h = self.model.forward(x,x_mask)
                 batch_loss = self.computeloss(h, y_mask)
                 loss = batch_loss / n_predictions
-                self.optimizer.zero_grad() 
-                loss.backward()
-                self.optimizer.step()
-            else: ### fine-tunning (SIM)
-                step = 'sim'
+                losses.append(loss * self.step_mlm['w'])
+                #self.optimizer.zero_grad() 
+                #loss.backward()
+                #self.optimizer.step()
+            if self.step_ali['w'] > 0.0: ### alignment
                 x1, x2, l1, l2, x1_mask, x2_mask, y, mask_s, mask_t = self.sim_batch_cuda(batch) 
                 #x1 contains the true words in batch_src
                 #x2 contains the true words in batch_tgt
@@ -166,9 +158,37 @@ class Trainer():
                 #print(h1)
                 batch_loss = self.computeloss(h1, h2, l1, l2, y, mask_s, mask_t)
                 loss = batch_loss / n_predictions
-                self.optimizer.zero_grad() 
-                loss.backward()
-                self.optimizer.step()
+                losses.append(loss * self.step_ali['w'])
+                #self.optimizer.zero_grad() 
+                #loss.backward()
+                #self.optimizer.step()
+            if self.step_cos['w'] > 0.0: ### alignment
+                #x1 contains the true words in batch_src
+                #x2 contains the true words in batch_tgt
+                #l1 length of sentences in batch
+                #l2 length of sentences in batch
+                #x1_mask contains true for padded words, false for not padded words in x1
+                #x2_mask contains true for padded words, false for not padded words in x2
+                #y contains +1.0 (parallel) or -1.0 (not parallel) for each sentence pair
+                #mask_s is the source sequence_length mask true/false depending on padded source words
+                #mask_t is the target sequence_length mask true/false depending on padded target words
+                n_predictions = x1.size(0)
+                h1 = self.model.forward(x1,x1_mask)
+                h2 = self.model.forward(x2,x2_mask)
+                #print('h1',h1.size())
+                #print(h1)
+                batch_loss = self.computeloss(h1, h2, l1, l2, y, mask_s, mask_t)
+                loss = batch_loss / n_predictions
+                losses.append(loss * self.step_ali['w'])
+                #self.optimizer.zero_grad() 
+                #loss.backward()
+                #self.optimizer.step()
+
+            ### global loss / gradient computation / model update
+            loss = torch.sum(losses)
+            self.optimizer.zero_grad() 
+            loss.backward()
+            self.optimizer.step()
 
             self.n_steps_so_far += 1
             ts.add_batch(batch_loss,n_predictions)
