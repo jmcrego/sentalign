@@ -60,7 +60,7 @@ class LabelSmoothing(nn.Module):
         self.confidence = 1.0 - smoothing
         self.smoothing = smoothing
         self.size = size #vocab size
-        #self.true_dist = None
+        #self.true_dist = None #???
         logging.info('built criterion (label smoothing)')
         
     def forward(self, x, target): 
@@ -74,7 +74,7 @@ class LabelSmoothing(nn.Module):
         mask = torch.nonzero(target.data == self.padding_idx) # device=x.device ???
         if mask.dim() > 0:
             true_dist.index_fill_(0, mask.squeeze(), 0.0)
-        self.true_dist = true_dist #???
+        #self.true_dist = true_dist #???
         return self.criterion(x, true_dist) #total loss of this batch (not normalized)
 
 
