@@ -143,7 +143,6 @@ class Trainer():
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
                 loss += self.step_mlm['w'] * loss_mlm
-
             if self.step_ali['w'] > 0.0 and False: ### (ALI)
                 h_xy = self.model.forward(xy, mask_xy)
                 h_x = h_xy[:,:maxslen,:]
@@ -151,8 +150,8 @@ class Trainer():
                 batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_x, mask_y)
                 loss_ali = batch_loss_ali / npred_ali
                 loss += self.step_ali['w'] * loss_ali
-
             ts.add_batch(loss,loss_mlm,loss_ali)
+
             ### gradient computation / model update
             self.optimizer.zero_grad() 
             loss.backward()
