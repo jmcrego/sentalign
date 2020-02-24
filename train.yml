@@ -19,13 +19,14 @@ valid:
   - [ './data/clean.news-commentary-v14.en.val.tokc','./data/clean.news-commentary-v14.fr.val.tokc','./data/clean.news-commentary-v14.en.val.tokc.en2fr.gdfa' ]
 #  - [ './data/clean.TED2013.en-fr.en.val.tokc',      './data/clean.TED2013.en-fr.fr.val.tokc',      './data/clean.TED2013.en-fr.en.val.tokc.en2fr.gdfa' ]
 #  - [ './data/clean.Wikipedia.en-fr.en.val.tokc',    './data/clean.Wikipedia.en-fr.fr.val.tokc',    './data/clean.Wikipedia.en-fr.en.val.tokc.en2fr.gdfa' ]
-max_length: 80
+max_length: 50
 swap_bitext: 0.5
 batch_size: [32, 32]
 steps: 
   mlm:  { w: 1.0, p_single: 0.15, p_mask: 0.15, r_same: 0.1, r_rand: 0.1 }
   ali:  { w: 1.0, R: 1.0, align_scale: 0.001 }
-checkpoint_every_steps: 1000
+checkpoint_every_steps: 100
 validation_every_steps: 5000
 report_every_steps: 100
+average_last_n: 10
 

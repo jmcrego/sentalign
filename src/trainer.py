@@ -27,13 +27,13 @@ def sequence_mask(lengths, mask_n_initials=0):
 class stats():
 
     def __init__(self):
-        self.n_preds = 0
-        self.sum_loss = 0.0
+        self.n_preds = defaultdict(int)
+        self.sum_loss = defaultdict(float)
         self.start = time.time()
 
-    def add_batch(self,batch_loss,n_predicted):
-        self.sum_loss += batch_loss
-        self.n_preds += n_predicted
+    def add_batch(self,step, loss, n_predicted):
+        self.sum_loss[step] += batch_loss
+        self.n_preds[step] += n_predicted
 
     def report(self,n_steps,step,trn_val_tst,cuda):
         if False and cuda:
@@ -58,12 +58,12 @@ class Trainer():
         self.report_every_steps = opts.train['report_every_steps']
         self.validation_every_steps = opts.train['validation_every_steps']
         self.checkpoint_every_steps = opts.train['checkpoint_every_steps']
+        self.average_last_n = opts.train['average_last_n']
         self.batch_size = opts.train['batch_size']
         self.max_length = opts.train['max_length']
         self.swap_bitext = opts.train['swap_bitext'] 
         self.step_mlm = opts.train['steps']['mlm']
         self.step_ali = opts.train['steps']['ali']
-
 
         V = len(self.vocab)
         N = opts.cfg['num_layers']
