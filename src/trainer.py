@@ -39,7 +39,7 @@ class stats():
         self.sum_loss_ali += loss_ali
         self.sum_loss_mlm += loss_mlm
 
-    def report(self,n_steps,step,trn_val_tst,cuda):
+    def report(self,n_steps,trn_val_tst,cuda):
         if False and cuda:
             torch.cuda.empty_cache()
             device = torch.cuda.current_device()
@@ -163,8 +163,7 @@ class Trainer():
             ### report
             ###
             if self.report_every_steps > 0 and self.n_steps_so_far % self.report_every_steps == 0:
-                pass
-#                ts.report(self.n_steps_so_far,step,'[Train]',self.cuda)
+                ts.report(self.n_steps_so_far,'[Train]',self.cuda)
 
             ###
             ### saved
