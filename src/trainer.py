@@ -133,6 +133,7 @@ class Trainer():
                 loss_mlm = batch_loss_mlm / npred_mlm
                 loss += self.step_mlm['w'] * loss_mlm
 #                ts.add_batch('mlm',batch_loss_mlm,npred_mlm)
+                print(loss)
 
             if self.step_ali['w'] > 0.0 and False: ### (ALI)
                 h_xy = self.model.forward(xy, mask_xy)
