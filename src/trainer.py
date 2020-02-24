@@ -255,7 +255,7 @@ class Trainer():
         if self.cuda:
             xy = xy.cuda()
             if step_mlm['w'] > 0.0:
-                xy_masked = xy_masked.cuda()
+                xy_mask = xy_mask.cuda()
                 xy_refs = xy_refs.cuda()
                 mask_xy = mask_xy.cuda()
             if step_ali['w'] > 0.0:
