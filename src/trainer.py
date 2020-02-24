@@ -49,7 +49,7 @@ class stats():
         loss_avg = self.sum_loss/self.n_steps
         loss_ali_avg = self.sum_loss_ali/self.n_steps
         loss_mlm_avg = self.sum_loss_mlm/self.n_steps
-        logging.info("{} n_steps: {} Loss: {:.6f} (mlm:{:.6f}, ali:{:.6f}) steps/sec: {:.2f}".format(trn_val_tst, n_steps, loss_avg, loss_mlm_avg, loss_ali_avg, self.n_steps/(time.time()-self.start)))
+        logging.info("{} n_steps: {} Loss: {:.4f} (mlm:{:.4f}, ali:{:.4f}) steps/sec: {:.2f}".format(trn_val_tst, n_steps, loss_avg, loss_mlm_avg, loss_ali_avg, self.n_steps/(time.time()-self.start)))
         #logging.info('{}'.format(torch.cuda.memory_summary(device=device, abbreviated=False)))
         self.n_steps = 0
         self.sum_loss = 0.0
