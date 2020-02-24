@@ -112,7 +112,7 @@ class Trainer():
     def __call__(self):
 
         logging.info('Start train n_steps_so_far={}'.format(self.n_steps_so_far))
-        ts = stats()
+#        ts = stats()
         for batch in self.data_train:
             self.model.train()
             xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
@@ -132,7 +132,7 @@ class Trainer():
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
                 loss += self.step_mlm['w'] * loss_mlm
-                print(loss_mlm)
+#                ts.add_batch('mlm',batch_loss_mlm,npred_mlm)
 
             if self.step_ali['w'] > 0.0 and False: ### (ALI)
                 h_xy = self.model.forward(xy, mask_xy)
@@ -141,6 +141,7 @@ class Trainer():
                 batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_x, mask_y)
                 loss_ali = batch_loss_ali / npred_ali
                 loss += self.step_ali['w'] * loss_ali
+#                ts.add_batch('ali',batch_loss_ali,npred_ali)
 
             ### gradient computation / model update
             self.optimizer.zero_grad() 
@@ -148,12 +149,12 @@ class Trainer():
             self.optimizer.step()
 
             self.n_steps_so_far += 1
-            #ts.add_batch(loss,batch_loss_mlm,npred_mlm,batch_loss_ali,npred_ali)
             ###
             ### report
             ###
             if self.report_every_steps > 0 and self.n_steps_so_far % self.report_every_steps == 0:
-                ts.report(self.n_steps_so_far,step,'[Train]',self.cuda)
+                pass
+#                ts.report(self.n_steps_so_far,step,'[Train]',self.cuda)
 
             ###
             ### saved
