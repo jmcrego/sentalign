@@ -27,13 +27,17 @@ def sequence_mask(lengths, mask_n_initials=0):
 class stats():
 
     def __init__(self):
-        self.n_preds = defaultdict(int)
-        self.sum_loss = defaultdict(float)
+        self.n_steps = 0
+        self.sum_loss = 0.0
+        self.sum_loss_ali = 0.0
+        self.sum_loss_mlm = 0.0
         self.start = time.time()
 
-    def add_batch(self,step, loss, n_predicted):
-        self.sum_loss[step] += batch_loss
-        self.n_preds[step] += n_predicted
+    def add_batch(self,loss,loss_mlm,loss_ali):
+        self.n_steps += 1
+        self.sum_loss += loss
+        self.sum_loss_ali += loss_ali
+        self.sum_loss_mlm += loss_mlm
 
     def report(self,n_steps,step,trn_val_tst,cuda):
         if False and cuda:
@@ -42,10 +46,15 @@ class stats():
             Gb_reserved = torch.cuda.memory_reserved(device=device) / 1073741824
             Gb_used = torch.cuda.get_device_properties(device=device).total_memory / 1073741824
 
-        logging.info("{} step: {} ({}) Loss: {:.6f} Pred/sec: {:.1f}".format(trn_val_tst, n_steps, step, self.sum_loss/self.n_preds, self.n_preds/(time.time()-self.start)))
+        loss_avg = self.sum_loss/self.n_steps
+        loss_ali_avg = self.sum_loss_ali/self.n_steps
+        loss_mlm_avg = self.sum_loss_mlm/self.n_steps
+        logging.info("{} nsteps: {} Loss: {:.6f} (mlm:{:.6f}, ali:{:.6f}) stepsPred/sec: {:.1f}".format(trn_val_tst, n_steps, loss_avg, loss_mlm_avg, loss_ali_avg, self.n_steps/(time.time()-self.start)))
         #logging.info('{}'.format(torch.cuda.memory_summary(device=device, abbreviated=False)))
-        self.n_preds = 0
+        self.n_steps = 0
         self.sum_loss = 0.0
+        self.sum_loss_mlm = 0.0
+        self.sum_loss_ali = 0.0
         self.start = time.time()
 
 
@@ -112,7 +121,7 @@ class Trainer():
     def __call__(self):
 
         logging.info('Start train n_steps_so_far={}'.format(self.n_steps_so_far))
-#        ts = stats()
+        ts = stats()
         for batch in self.data_train:
             self.model.train()
             xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
@@ -124,6 +133,8 @@ class Trainer():
             #mask_x  [batch_size, ls+lt] True for x words in xy; false for rest (<cls> not included)
             #mask_y  [batch_size, ls+lt] True for y words in xy; false for rest (<sep> not included)
             loss = 0.0
+            loss_mlm = 0.0
+            loss_ali = 0.0
             if self.step_mlm['w'] > 0.0: ### (MLM)
                 h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
                 if npred_mlm == 0: 
@@ -132,7 +143,6 @@ class Trainer():
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
                 loss += self.step_mlm['w'] * loss_mlm
-#                ts.add_batch('mlm',batch_loss_mlm,npred_mlm)
                 print(loss)
 
             if self.step_ali['w'] > 0.0 and False: ### (ALI)
@@ -142,8 +152,8 @@ class Trainer():
                 batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_x, mask_y)
                 loss_ali = batch_loss_ali / npred_ali
                 loss += self.step_ali['w'] * loss_ali
-#                ts.add_batch('ali',batch_loss_ali,npred_ali)
 
+            ts.add_batch(loss,loss_mlm,loss_ali)
             ### gradient computation / model update
             self.optimizer.zero_grad() 
             loss.backward()
