@@ -74,25 +74,13 @@ class LabelSmoothing(nn.Module):
         mask = torch.nonzero(target.data == self.padding_idx) # device=x.device ???
         if mask.dim() > 0:
             true_dist.index_fill_(0, mask.squeeze(), 0.0)
-        #self.true_dist = true_dist
+        self.true_dist = true_dist #???
         return self.criterion(x, true_dist) #total loss of this batch (not normalized)
 
 
-class CosineSIM(nn.Module):
-    def __init__(self, margin=0.0):
-        super(CosineSIM, self).__init__()
-        self.criterion = nn.CosineEmbeddingLoss(margin=margin, size_average=None, reduce=None, reduction='sum')
-        logging.info('built criterion (cosine)')
-        
-    def forward(self, s1, s2, target):
-        #i use -target since target is: 1.0 (divergent) or -1.0 (parallel)
-        #and i need: 1.0 (cosine of same vectors) or -1.0 (cosine of distant vectors)
-        return self.criterion(s1, s2, -target) #total loss of this batch (not normalized)
-
-
-class AlignSIM(nn.Module):
+class Align(nn.Module):
     def __init__(self):
-        super(AlignSIM, self).__init__()
+        super(Align, self).__init__()
         logging.info('built criterion (align)')
         
     def forward(self, aggr, y, mask_t):
@@ -141,15 +129,13 @@ class ComputeLossALI:
         self.R = step_ali['R']
         self.opt = opt
 
-    def __call__(self, hs, ht, slen, tlen, y, mask_s, mask_t): 
-        #hs [bs, sl, es] embeddings of source words after encoder (<cls> <bos> s1 s2 ... sI <eos> <pad> ...)
-        #ht [bs, tl, es] embeddings of target words after encoder (<cls> <bos> t1 t2 ... tJ <eos> <pad> ...)
-        #slen [bs] length of source sentences (I) in batch
-        #tlen [bs] length of target sentences (J) in batch
-        #y [bs] parallel(-1.0)/divergent(1.0) value of each sentence pair
-        #mask_s [bs,sl]
-        #mask_t [bs,tl]
-        #mask_st [bs,sl,tl]
+    def __call__(self, h_st, y, mask_st): 
+        #h_st [bs, len, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
+        #y [bs, lsrc, ltgt] alignment matrix
+        #mask_st [bs,sl]
+
+        hs = h_st
+        ht = h_st
         mask_s = mask_s.unsqueeze(-1).type(torch.float64)
         mask_t = mask_t.unsqueeze(-1).type(torch.float64)
 
@@ -161,6 +147,7 @@ class ComputeLossALI:
         loss = self.criterion(aggr_t,y,mask_t.squeeze())
         return loss #not normalized
 
+
     def aggr(self,S_st,mask_s): #foreach tgt word finds the aggregation over all src words
 #        print('mask_s',mask_s[0])
         exp_rS = torch.exp(S_st * self.R)
@@ -170,48 +157,5 @@ class ComputeLossALI:
         log_sum_exp_rS_div_R = torch.log(sum_exp_rS) / self.R
 #        print('log_sum_exp_rS_div_R',log_sum_exp_rS_div_R[0])
         return log_sum_exp_rS_div_R
-
-class ComputeLossCOS:
-    def __init__(self, criterion, pooling, opt=None):
-        self.criterion = criterion
-        self.pooling = pooling
-        self.opt = opt
-
-
-    def __call__(self, hs, ht, slen, tlen, y, mask_s, mask_t): 
-        #hs [bs, sl, es] embeddings of source words after encoder (<cls> <bos> s1 s2 ... sI <eos> <pad> ...)
-        #ht [bs, tl, es] embeddings of target words after encoder (<cls> <bos> t1 t2 ... tJ <eos> <pad> ...)
-        #slen [bs] length of source sentences (I) in batch
-        #tlen [bs] length of target sentences (J) in batch
-        #y [bs] parallel(-1.0)/divergent(1.0) value of each sentence pair
-        #mask_s [bs,sl]
-        #mask_t [bs,tl]
-        #mask_st [bs,sl,tl]
-        mask_s = mask_s.unsqueeze(-1).type(torch.float64)
-        mask_t = mask_t.unsqueeze(-1).type(torch.float64)
-
-        if self.pooling == 'max':
-            s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
-            t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) 
-            loss = self.criterion(s, t, y)
-
-        elif self.pooling == 'mean':
-            s = torch.sum(hs * mask_s, dim=1) / torch.sum(mask_s, dim=1)
-            t = torch.sum(ht * mask_t, dim=1) / torch.sum(mask_t, dim=1)
-            loss = self.criterion(s, t, y)
-
-        elif self.pooling == 'cls':
-            s = hs[:, 0, :] # take embedding of first token <cls>
-            t = ht[:, 0, :] # take embedding of first token <cls>
-            loss = self.criterion(s, t, y)
-
-        else:
-            logging.error('bad pooling method {}'.format(self.pooling))
-            sys.exit()
-
-        return loss #not normalized
-
-
-
 
 

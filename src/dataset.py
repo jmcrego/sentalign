@@ -9,6 +9,7 @@ import numpy as np
 import json
 import six
 import random
+from copy import deepcopy
 #from torch.nn.utils.rnn import pad_sequence
 from random import shuffle
 from collections import defaultdict
@@ -121,7 +122,7 @@ class Vocab():
 ####################################################################
 
 class batch():
-    def __init__(self):
+    def __init__(self,p_swap=0.0):
         self.src = []
         self.tgt = []
         self.sidx = [] #batch of [<cls>, <s1>, ..., <sI>, [<pad>]*]
@@ -130,22 +131,24 @@ class batch():
         self.ltgt = [] #[J1, J2, ...] size of src sentences including <sep>
         self.a = [] #batch of alignment pairs [[0,0], [1,1], ...]
         self.indexs = [] #[i1, i2, ...] position in the original file
+        self.p_swap = p_swap
 
     def __len__(self):
         return len(self.sidx)
 
-    def add(self, index, idx, snt, do_swap=False):
+    def add(self, index, idx, snt):
         self.indexs.append(index)
         (sidx, tidx, ali) = idx
         (src, tgt) = snt
 
-        if len(tidx) > 1 and do_swap and random.random() < 0.5:
+        if len(tidx) > 1 and random.random() < self.p_swap:
             aidx = list(tidx)
             tidx = list(sidx)
             sidx = list(aidx)
             aux = list(tgt)
             tgt = list(src)
             src = list(tgt)
+            do_swap = True
         else:
             do_swap = False
 
@@ -196,28 +199,32 @@ class batch():
         if len(self.a) > 0:
             self.ali = np.array(self.ali)
 
-'''
+    def dump(self):
         print('indexs')
         print(self.indexs)
         print('[bs, ls, lt]')
-        print('[{}, {}, {}]'.format(bs,self.maxlsrc,self.maxltgt))
+        print('[{}, {}, {}]'.format(len(self.sidx),self.maxlsrc,self.maxltgt))
         print('src')
         print(self.src)
         print('tgt')
         print(self.tgt)
-        print('lsrc')
+        print('lsrc (np)')
         print(self.lsrc)
-        print('ltgt')
+        print('maxlsrc (np)')
+        print(self.maxlsrc)
+        print('ltgt (np)')
         print(self.ltgt)
-        print('sidx')
+        print('maxltgt (np)')
+        print(self.maxltgt)
+        print('sidx (np)')
         print(self.sidx)
-        print('tidx')
+        print('tidx (np)')
         print(self.tidx)
         print('a')
         print(self.a)
-        print('ali')
+        print('ali (np)')
         print(self.ali)
-'''
+
 
 ####################################################################
 ### Dataset ########################################################
@@ -358,7 +365,7 @@ class Dataset():
         logging.info('found {} sentences ({} filtered), {} tokens ({:.3f}% OOVs) in files: [{}]'.format(nsent,nfilt,ntoks,100.0*nunks/ntoks,fsrc))
 
 
-    def build_batches(self, batch_size):
+    def build_batches(self, batch_size, p_swap=0.0):
         self.batches = []
         self.batch_size = batch_size
         if len(self.idx) == 0:
@@ -375,15 +382,16 @@ class Dataset():
             data_len1 = [len(x[0]) for x in self.idx]
             indexs = np.argsort(data_len1)
 
-        currbatch = batch() 
+        currbatch = batch(p_swap) 
         for i in range(len(indexs)):
             index = indexs[i]
+
             currbatch.add(index,self.idx[index],self.snt[index])
             if len(currbatch) == self.batch_size or i == len(indexs)-1: ### record new batch
-                self.batches.append(currbatch.pad())
+                currbatch.pad()
+                self.batches.append(deepcopy(currbatch))
                 currbatch = batch()
         logging.info('built {} batches'.format(len(self.batches)))
-
 
     def __len__(self):
         return len(self.idx)

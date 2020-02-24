@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 from src.dataset import Vocab, Dataset, OpenNMTTokenizer, batch
 from src.model import make_model
-from src.optim import NoamOpt, LabelSmoothing, CosineSIM, AlignSIM, ComputeLossMLM, ComputeLossALI, ComputeLossCOS
+from src.optim import NoamOpt, LabelSmoothing, Align, ComputeLossMLM, ComputeLossALI
 
 
 def sequence_mask(lengths, mask_n_initials=0):
@@ -63,7 +63,6 @@ class Trainer():
         self.swap_bitext = opts.train['swap_bitext'] 
         self.step_mlm = opts.train['steps']['mlm']
         self.step_ali = opts.train['steps']['ali']
-        self.step_cos = opts.train['steps']['cos']
 
 
         V = len(self.vocab)
@@ -87,30 +86,27 @@ class Trainer():
 
         self.optimizer = NoamOpt(d_model, factor, warmup_steps, torch.optim.Adam(self.model.parameters(), lr=lrate, betas=(beta1, beta2), eps=eps))
         self.crit_mlm = LabelSmoothing(size=V, padding_idx=self.vocab.idx_pad, smoothing=label_smoothing)
-        self.crit_ali = AlignSIM()
-        self.crit_cos = CosineSIM()
+        self.crit_ali = Align()
 
         if self.cuda:
             self.crit_mlm.cuda()
             self.crit_ali.cuda()
-            self.crit_cos.cuda()
 
         self.load_checkpoint() #loads if exists
         self.computeloss_mlm = ComputeLossMLM(self.model.generator, self.crit_mlm, self.optimizer)
         self.computeloss_ali = ComputeLossALI(self.crit_ali, self.step_ali, self.optimizer)
-        self.computeloss_cos = ComputeLossCOS(self.crit_ali, self.step_cos, self.optimizer)
 
         logging.info('read Train data')
         self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True)
         for (fs,ft,fa) in opts.train['train']:
             self.data_train.add3files(fs,ft,fa)
-        self.data_train.build_batches(self.batch_size[0])
+        self.data_train.build_batches(self.batch_size[0],self.swap_bitext)
 
         logging.info('read Valid data')
         self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False)
         for (fs,ft,fa) in opts.train['valid']:
             self.data_valid.add3files(fs,ft,fa)
-        self.data_valid.build_batches(self.batch_size[1])
+        self.data_valid.build_batches(self.batch_size[1],self.swap_bitext)
 
 
     def __call__(self):
@@ -119,79 +115,40 @@ class Trainer():
         ts = stats()
         for batch in self.data_train:
             self.model.train()
-            losses = []
-            ###
-            ### run step
-            ###
-            if self.step_mlm['w'] > 0.0: ### pre-training (MLM)
-                step = 'mlm'
-                x, x_mask, y_mask = self.mlm_batch_cuda(batch)
-                #x contains the true words in batch after masking some of them (<msk>, random, same)
-                #x_mask contains true for words to be predicted (masked), false otherwise
-                #y_mask contains the original words of those cells to be predicted, <pad> otherwise
-                n_predictions = torch.sum((y_mask != self.vocab.idx_pad)).data
-                if n_predictions == 0: 
+            xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
+            #xy      [batch_size, ls+lt] contains the original words after concat(x,y)                          [input for ALI]
+            #xy_mask [batch_size, ls+lt] contains the original words concat(x,y), some are be masked            [input for MLM]
+            #xy_refs [batch_size, ls+lt] contains the original value of masked words; <pad> for the rest        [reference for MLM]
+            #matrix  [bs,ls-1,lt-1] the alignment between src/tgt (<cls>/<sep> not included)                    [reference for ALI]
+            #mask_xy [batch_size, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
+            #mask_x  [batch_size, ls+lt] True for x words in xy; false for rest (<cls> not included)
+            #mask_y  [batch_size, ls+lt] True for y words in xy; false for rest (<sep> not included)
+            loss = 0.0
+            if self.step_mlm['w'] > 0.0: ### (MLM)
+                h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
+                if npred_mlm == 0: 
                     logging.info('batch with nothing to predict')
                     continue
-                h = self.model.forward(x,x_mask)
-                batch_loss = self.computeloss(h, y_mask)
-                loss = batch_loss / n_predictions
-                losses.append(loss * self.step_mlm['w'])
-                #self.optimizer.zero_grad() 
-                #loss.backward()
-                #self.optimizer.step()
-            if self.step_ali['w'] > 0.0: ### alignment
-                x1, x2, l1, l2, x1_mask, x2_mask, y, mask_s, mask_t = self.sim_batch_cuda(batch) 
-                #x1 contains the true words in batch_src
-                #x2 contains the true words in batch_tgt
-                #l1 length of sentences in batch
-                #l2 length of sentences in batch
-                #x1_mask contains true for padded words, false for not padded words in x1
-                #x2_mask contains true for padded words, false for not padded words in x2
-                #y contains +1.0 (parallel) or -1.0 (not parallel) for each sentence pair
-                #mask_s is the source sequence_length mask true/false depending on padded source words
-                #mask_t is the target sequence_length mask true/false depending on padded target words
-                n_predictions = x1.size(0)
-                h1 = self.model.forward(x1,x1_mask)
-                h2 = self.model.forward(x2,x2_mask)
-                #print('h1',h1.size())
-                #print(h1)
-                batch_loss = self.computeloss(h1, h2, l1, l2, y, mask_s, mask_t)
-                loss = batch_loss / n_predictions
-                losses.append(loss * self.step_ali['w'])
-                #self.optimizer.zero_grad() 
-                #loss.backward()
-                #self.optimizer.step()
-            if self.step_cos['w'] > 0.0: ### alignment
-                #x1 contains the true words in batch_src
-                #x2 contains the true words in batch_tgt
-                #l1 length of sentences in batch
-                #l2 length of sentences in batch
-                #x1_mask contains true for padded words, false for not padded words in x1
-                #x2_mask contains true for padded words, false for not padded words in x2
-                #y contains +1.0 (parallel) or -1.0 (not parallel) for each sentence pair
-                #mask_s is the source sequence_length mask true/false depending on padded source words
-                #mask_t is the target sequence_length mask true/false depending on padded target words
-                n_predictions = x1.size(0)
-                h1 = self.model.forward(x1,x1_mask)
-                h2 = self.model.forward(x2,x2_mask)
-                #print('h1',h1.size())
-                #print(h1)
-                batch_loss = self.computeloss(h1, h2, l1, l2, y, mask_s, mask_t)
-                loss = batch_loss / n_predictions
-                losses.append(loss * self.step_ali['w'])
-                #self.optimizer.zero_grad() 
-                #loss.backward()
-                #self.optimizer.step()
+                batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
+                loss_mlm = batch_loss_mlm / npred_mlm
+                loss += self.step_mlm['w'] * loss_mlm
+                print(loss_mlm)
 
-            ### global loss / gradient computation / model update
-            loss = torch.sum(losses)
+            if self.step_ali['w'] > 0.0 and False: ### (ALI)
+                h_xy = self.model.forward(xy, mask_xy)
+                h_x = h_xy[:,:maxslen,:]
+                h_y = h_xy[:,maxslen:,:]
+                batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_x, mask_y)
+                loss_ali = batch_loss_ali / npred_ali
+                loss += self.step_ali['w'] * loss_ali
+
+            ### gradient computation / model update
             self.optimizer.zero_grad() 
             loss.backward()
             self.optimizer.step()
 
             self.n_steps_so_far += 1
-            ts.add_batch(batch_loss,n_predictions)
+            #ts.add_batch(loss,batch_loss_mlm,npred_mlm,batch_loss_ali,npred_ali)
             ###
             ### report
             ###
@@ -206,17 +163,16 @@ class Trainer():
             ###
             ### validation
             ###
-            if self.data_valid is not None and self.validation_every_steps > 0 and self.n_steps_so_far % self.validation_every_steps == 0:
+            if self.validation_every_steps > 0 and self.n_steps_so_far % self.validation_every_steps == 0:
                 self.validation()
             ###
-            ### stop training
+            ### stop training (never)
             ###
-            if self.n_steps_so_far >= self.train_steps:
+            if self.n_steps_so_far >= 9999999999:
                 break
 
         self.save_checkpoint()
         logging.info('End train')
-
 
     def validation(self):
         ds = stats()
@@ -242,69 +198,72 @@ class Trainer():
                 ds.add_batch(batch_loss,n_predictions)
             ds.report(self.n_steps_so_far,step,'[Valid]',self.cuda)
 
+    def format_batch(self, batch, step_mlm, step_ali):
+        xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
+        #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
+        npred_mlm = 0
+        npred_ali = 0
+        if step_mlm['w'] > 0.0:
+            p_mask = step_mlm['p_mask']
+            r_same = step_mlm['r_same']
+            r_rand = step_mlm['r_rand']
 
-    def mlm_batch_cuda(self, batch):
-        batch = np.array(batch.idx_src)
-        x = torch.from_numpy(batch) #[batch_size, max_len] contains the original words. some will be masked
-        x_mask = torch.as_tensor((batch != self.vocab.idx_pad)).unsqueeze(-2) #[batch_size, 1, max_len]. Contains true for words to be predicted (masked), false otherwise
-        y_mask = torch.ones_like(x, dtype=torch.int64) #[batch_size, max_len]. will contain the original value of masked words in x. <pad> for the rest
-        #y_mask = torch.from_numpy(batch) ## does not copy!!
+            xy_mask = torch.ones_like(xy, dtype=torch.int64) * xy                 #[batch_size, max_len] contains the original words concat(x,y). some will be masked
+            #xy_mask [batch_size, max_len] contains the original words concat(x,y), some will be masked            [input for MLM]
+            xy_refs = torch.ones_like(xy, dtype=torch.int64) * self.vocab.idx_pad #[batch_size, max_len] will contain the original value of masked words in xy <pad> for the rest
+            #xy_refs [batch_size, max_len] contains the original value of masked words; <pad> for the rest         [reference for MLM]
+            mask_xy = torch.as_tensor((xy != self.vocab.idx_pad))                 #[batch_size, max_len] contains true for words, False for <pad>
+            #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
+            for i in range(xy.shape[0]):
+                for j in range(xy.shape[1]):
+                    if not self.vocab.is_reserved(xy[i,j]):
+                        r = random.random()          # float in range [0.0, 1,0)
+                        if r < p_mask:               ### masked token that will be predicted
+                            npred_mlm += 1
+                            xy_refs[i,j] = xy[i,j]   # save the original value to be used as reference
+                            q = random.random()      # float in range [0.0, 1,0)
+                            if q < r_same:           ### same
+                                pass
+                            elif q < r_same+r_rand:  ### random (among all vocab words in range [7, |vocab|])
+                                xy_mask[i,j] = random.randint(7,len(self.vocab)-1)
+                            else:                    # <msk>
+                                xy_mask[i,j] = self.vocab.idx_msk
+        else:
+            xy_mask = []
+            xy_refs = []
+            mask_xy = []
 
-        for i in range(x.shape[0]):
-            for j in range(x.shape[1]):
-                y_mask[i,j] = self.vocab.idx_pad ### all padded except those masked (to be predicted)
-                if not self.vocab.is_reserved(x[i,j]):
-                    r = random.random()     # float in range [0.0, 1,0)
-                    if r < self.p_mask:          ### is masked
-                        y_mask[i,j] = x[i,j]# use the original (true) word rather than <pad> 
-                        q = random.random() # float in range [0.0, 1,0)
-                        if q < self.r_same:      # same
-                            pass
-                        elif q < self.r_same+self.r_rand: # rand among all vocab words
-                            x[i,j] = random.randint(7,len(self.vocab)-1) # int in range [7, |vocab|)
-                        else:               # <msk>
-                            x[i,j] = self.vocab.idx_msk
+
+        if step_ali['w'] > 0.0:
+            matrix = torch.as_tensor(batch.ali)
+            #matrix  [bs,ls,lt] the alignment between src/tgt [reference for ALI]
+            mask_x = torch.zeros_like(xy, dtype=torch.bool)
+            #mask_x  [batch_size, max_len] True for x words in xy; false for rest (<cls> not included)
+            mask_y = torch.zeros_like(xy, dtype=torch.bool)
+            #mask_y  [batch_size, max_len] True for y words in xy; false for rest (<sep> not included)
+            for b in range(mask_x.shape[0]):
+                for i in range(1,batch.lsrc[b]): ### do not include <cls>
+                    mask_x[b,i] = True
+                for j in range(1,batch.ltgt[b]): ### do not include <sep>
+                    mask_y[b,batch.maxlsrc+j] = True
+            npred_ali += matrix.numel()
+        else:
+            matrix = []
+            mask_x = []
+            mask_y = []
 
         if self.cuda:
-            x = x.cuda()
-            x_mask = x_mask.cuda()
-            y_mask = y_mask.cuda()
+            xy = xy.cuda()
+            if step_mlm['w'] > 0.0:
+                xy_masked = xy_masked.cuda()
+                xy_refs = xy_refs.cuda()
+                mask_xy = mask_xy.cuda()
+            if step_ali['w'] > 0.0:
+                mask_x = mask_x.cuda()
+                mask_y = mask_y.cuda()
+                matrix = matrix.cuda()
 
-        return x, x_mask, y_mask
-
-
-    def sim_batch_cuda(self, batch):
-        batch_src = np.array(batch.idx_src)
-        batch_tgt = np.array(batch.idx_tgt)
-        batch_src_len = np.array(batch.lsrc)
-        batch_tgt_len = np.array(batch.ltgt)
-        y = np.array(batch.sign) #-1.0 parallel (not divergent); +1.0 not parallel (divergent)
-
-        x1 = torch.from_numpy(batch_src) #[batch_size, max_len] the original words with padding
-        x1_mask = torch.as_tensor((batch_src != self.vocab.idx_pad)).unsqueeze(-2) #[batch_size, 1, max_len]
-        l1 = torch.from_numpy(batch_src_len) #[bs]
-
-        x2 = torch.from_numpy(batch_tgt) #[batch_size, max_len] the original words with padding
-        x2_mask = torch.as_tensor((batch_tgt != self.vocab.idx_pad)).unsqueeze(-2) #[batch_size, 1, max_len]
-        l2 = torch.from_numpy(batch_tgt_len) #[bs]
-
-        mask_s = torch.from_numpy(sequence_mask(batch_src_len,mask_n_initials=2))
-        mask_t = torch.from_numpy(sequence_mask(batch_tgt_len,mask_n_initials=2)) 
-
-        y = torch.as_tensor(y)
-
-        if self.cuda:
-            x1 = x1.cuda()
-            x1_mask = x1_mask.cuda()
-            l1 = l1.cuda()
-            x2 = x2.cuda()
-            x2_mask = x2_mask.cuda()
-            l2 = l2.cuda()
-            y = y.cuda()
-            mask_s = mask_s.cuda()
-            mask_t = mask_t.cuda()
-
-        return x1, x2, l1, l2, x1_mask, x2_mask, y, mask_s, mask_t
+        return xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali
 
 
     def load_checkpoint(self):
