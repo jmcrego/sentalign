@@ -13,6 +13,7 @@ from copy import deepcopy
 #from torch.nn.utils.rnn import pad_sequence
 from random import shuffle
 from collections import defaultdict
+from trainer import load_checkpoint
 
 idx_pad = 0
 idx_unk = 1
@@ -335,7 +336,7 @@ class Dataset():
             ntoks_tgt += len(tidx)
             self.idx.append([sidx,tidx])
             self.snt.append([ls,lt])
-        logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt,fali))
+        logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt))
 
 
     def add1file(self, fsrc):
