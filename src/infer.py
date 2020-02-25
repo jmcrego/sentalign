@@ -93,8 +93,8 @@ class Infer():
                     s = torch.sum(hs * mask_s, dim=1) / torch.sum(mask_s, dim=1)
                     t = torch.sum(ht * mask_t, dim=1) / torch.sum(mask_t, dim=1)
                 elif self.pooling == 'cls':
-                    s = hs[:, 0, :] # take embedding of first token <cls>
-                    t = ht[:, 0, :] # take embedding of first token <cls>
+                    s = h_xy[:, 0, :] # take embedding of <cls>
+                    t = h_xy[:,ls+1,:] # take embedding of <sep>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
                 sim = F.cosine_similarity(norm(s), norm(t), dim=1, eps=1e-12).cpu().detach().numpy()
