@@ -138,7 +138,11 @@ class batch():
 
     def add(self, index, idx, snt):
         self.indexs.append(index)
-        (sidx, tidx, ali) = idx
+        if len(idx) == 3:
+            (sidx, tidx, ali) = idx
+        elif len(idx) == 2:
+            (sidx, tidx) = idx
+            ali = []
         (src, tgt) = snt
 
         if len(tidx) > 1 and random.random() < self.p_swap:
