@@ -90,8 +90,8 @@ class Infer():
                     s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                     t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                 elif self.pooling == 'mean':
-                    s = torch.sum(hx * mask_s, dim=1) / torch.sum(mask_s, dim=1)
-                    t = torch.sum(hy * mask_t, dim=1) / torch.sum(mask_t, dim=1)
+                    s = torch.sum(hs * mask_s, dim=1) / torch.sum(mask_s, dim=1)
+                    t = torch.sum(ht * mask_t, dim=1) / torch.sum(mask_t, dim=1)
                 elif self.pooling == 'cls':
                     s = hs[:, 0, :] # take embedding of first token <cls>
                     t = ht[:, 0, :] # take embedding of first token <cls>
