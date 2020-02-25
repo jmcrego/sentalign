@@ -84,12 +84,12 @@ class Infer():
                 lt = batch.maxltgt-1 ### maxlength of target sequence without <sep>
                 print('ls',ls)
                 print('lt',lt)
-                hs = h_xy[:,1:ls+1,:]
-                ht = h_xy[:,ls+2:,:]
+                hs = h_xy[:,1:ls+1,:] #[bs, ls, es]
+                ht = h_xy[:,ls+2:,:] #[bs, lt, es]
                 print('hs',hs.shape)
                 print('ht',ht.shape)
-                mask_s = mask_xy[:,1:ls+1].type(torch.float64) #[bs, ls]
-                mask_t = mask_xy[:,ls+2:,].type(torch.float64) #[bs, lt]
+                mask_s = mask_xy[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
+                mask_t = mask_xy[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
                 print('mask_s',mask_s.shape)
                 print('mask_t',mask_t.shape)
                 sys.exit()
@@ -97,8 +97,8 @@ class Infer():
                     s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                     t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                 elif self.pooling == 'mean':
-                    s = torch.sum(hs * mask_s, dim=2) / torch.sum(mask_s, dim=2)
-                    t = torch.sum(ht * mask_t, dim=2) / torch.sum(mask_t, dim=2)
+                    s = torch.sum(hs * mask_s, dim=2) / torch.sum(mask_s, dim=1)
+                    t = torch.sum(ht * mask_t, dim=2) / torch.sum(mask_t, dim=1)
                 elif self.pooling == 'cls':
                     s = h_xy[:, 0, :] # take embedding of <cls>
                     t = h_xy[:,ls+1,:] # take embedding of <sep>
