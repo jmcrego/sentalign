@@ -98,28 +98,29 @@ class Infer():
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
                 sim = F.cosine_similarity(self.norm(s), self.norm(t), dim=1, eps=1e-12).cpu().detach().numpy()
-                print(sim)
-                
+
                 ### output
                 if self.matrix:
                     S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
-                    ### and i show the alignments
-                    align = []
-                    align.append(['{:.4f}'.format(sim)] + batch.src) #mean pooling is added here
-                    for t in range(len(batch.tgt)):
-                        row = []
-                        for s in range(len(batch.src)):
-                            row.append('{:.2f}'.format(S_st[0,2+s,t+2]))
-                        align.append([batch.tgt[t]] + row)
-                    #print(np.matrix(align))
-                    #s = [[str(e) for e in row] for row in align]
-                    lens = [max(map(len, col)) for col in zip(*align)]
-                    fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
-                    table = [fmt.format(*row) for row in align]
-                    print(batch.index)
-                    print('\n'.join(table))
+                    for b in range(len(sim)):
+                        ### and i show the alignments
+                        align = []
+                        align.append(['{:.4f}'.format(sim[b])] + batch.src[b]) #mean pooling is added here
+                        for t in range(len(batch.tgt[b])):
+                            row = []
+                            for s in range(len(batch.src[b])):
+                                row.append('{:.2f}'.format(S_st[b,2+s,t+2]))
+                            align.append([batch.tgt[b,t]] + row)
+                        #print(np.matrix(align))
+                        #s = [[str(e) for e in row] for row in align]
+                        lens = [max(map(len, col)) for col in zip(*align)]
+                        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+                        table = [fmt.format(*row) for row in align]
+                        print(batch.indexs[b])
+                        print('\n'.join(table))
                 else:
-                    print(batch.indexs,sim)
+                    for b in range(len(sim)):
+                        print(batch.indexs[b],sim)
 
         logging.info('End testing')
 
