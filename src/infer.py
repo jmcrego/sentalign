@@ -104,6 +104,7 @@ class Infer():
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
                 sim = F.cosine_similarity(norm(s,1), norm(t,1), dim=1, eps=1e-12).cpu().detach().numpy()
+                print(sim)
                 sys.exit()
 
                 ### output
