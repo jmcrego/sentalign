@@ -82,12 +82,14 @@ class Infer():
                 h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
                 ls = batch.maxlsrc-1 ### maxlength of source sequence without <cls>
                 lt = batch.maxltgt-1 ### maxlength of target sequence without <sep>
+                print('ls',ls)
+                print('lt',lt)
                 hs = h_xy[:,1:ls+1,:]
                 ht = h_xy[:,ls+2:,:]
                 print('hs',hs.shape)
                 print('ht',ht.shape)
-                mask_s = mask_xy[:,1:ls+1].type(torch.float64)
-                mask_t = mask_xy[:,ls+2:,].type(torch.float64)
+                mask_s = mask_xy[:,1:ls+1].type(torch.float64) #[bs, ls]
+                mask_t = mask_xy[:,ls+2:,].type(torch.float64) #[bs, lt]
                 print('mask_s',mask_s.shape)
                 print('mask_t',mask_t.shape)
                 sys.exit()
