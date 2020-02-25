@@ -38,7 +38,7 @@ class Infer():
         self.load_checkpoint()
 
         self.align_scale = 0.001
-        self.batch_size = 4
+        self.batch_size = opts.batch_size
         self.pooling = opts.pooling
         self.matrix = opts.matrix
         self.token = None
