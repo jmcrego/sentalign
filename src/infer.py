@@ -115,7 +115,7 @@ class Infer():
                     if self.matrix:
                         print_matrix(S_st[b], batch.src[b], batch.tgt[b], sim[b], batch.indexs[b])
                     else:
-                        print(batch.indexs[b],sim[b],' '.join(batch.src[b]),' '.join(batch.tgt[b]))
+                        print("{}\t{:.4f}\t{}\t{}".format(batch.indexs[b],sim[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
         logging.info('End testing')
 
