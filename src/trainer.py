@@ -124,7 +124,7 @@ class Trainer():
         ts = stats()
         for batch in self.data_train:
             self.model.train()
-            xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
+            xy, xy_mask, xy_refs, mask_xy, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
             #xy      [batch_size, ls+lt] contains the original words after concat(x,y)                          [input for ALI]
             #matrix  [bs,ls,lt] the alignment between src/tgt (<cls>/<sep> not included)                        [reference for ALI]
             #xy_mask [batch_size, ls+lt] contains the original words concat(x,y), some are be masked            [input for MLM]
@@ -183,7 +183,7 @@ class Trainer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_valid:
-                xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
+                xy, xy_mask, xy_refs, mask_xy, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
                 loss = 0.0
                 loss_mlm = 0.0
                 loss_ali = 0.0
@@ -240,21 +240,10 @@ class Trainer():
 
         if step_ali['w'] > 0.0:
             matrix = torch.as_tensor(batch.ali)
-            #matrix  [bs,ls,lt] the alignment between src/tgt [reference for ALI]
-            mask_x = torch.zeros_like(xy, dtype=torch.bool)
-            #mask_x  [batch_size, max_len] True for x words in xy; false for rest (<cls> not included)
-            mask_y = torch.zeros_like(xy, dtype=torch.bool)
-            #mask_y  [batch_size, max_len] True for y words in xy; false for rest (<sep> not included)
-            for b in range(mask_x.shape[0]):
-                for i in range(1,batch.lsrc[b]): ### do not include <cls>
-                    mask_x[b,i] = True
-                for j in range(1,batch.ltgt[b]): ### do not include <sep>
-                    mask_y[b,batch.maxlsrc+j] = True
             npred_ali += matrix.numel()
+            #matrix  [bs,ls,lt] the alignment between src/tgt [reference for ALI]
         else:
             matrix = []
-            mask_x = []
-            mask_y = []
 
         if self.cuda:
             xy = xy.cuda()
@@ -263,11 +252,9 @@ class Trainer():
                 xy_mask = xy_mask.cuda()
                 xy_refs = xy_refs.cuda()
             if step_ali['w'] > 0.0:
-                mask_x = mask_x.cuda()
-                mask_y = mask_y.cuda()
                 matrix = matrix.cuda()
 
-        return xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali
+        return xy, xy_mask, xy_refs, mask_xy, matrix, npred_mlm, npred_ali
 
 
     def load_checkpoint(self):
