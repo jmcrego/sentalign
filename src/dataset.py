@@ -13,7 +13,6 @@ from copy import deepcopy
 #from torch.nn.utils.rnn import pad_sequence
 from random import shuffle
 from collections import defaultdict
-from trainer import load_checkpoint
 
 idx_pad = 0
 idx_unk = 1
