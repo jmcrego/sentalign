@@ -84,8 +84,13 @@ class Infer():
                 lt = batch.maxltgt-1 ### maxlength of target sequence without <sep>
                 hs = h_xy[:,1:ls+1,:]
                 ht = h_xy[:,ls+2:,:]
+                print('hs',hs.shape)
+                print('ht',ht.shape)
                 mask_s = mask_xy[:,1:ls+1].type(torch.float64)
                 mask_t = mask_xy[:,ls+2:,].type(torch.float64)
+                print('mask_s',mask_s.shape)
+                print('mask_t',mask_t.shape)
+                sys.exit()
                 if self.pooling == 'max':
                     s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                     t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
