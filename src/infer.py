@@ -96,16 +96,16 @@ class Infer():
                     s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                     t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                 elif self.pooling == 'mean':
-                    s = torch.sum(hs * mask_s, dim=1) / torch.sum(mask_s, dim=1)
-                    t = torch.sum(ht * mask_t, dim=1) / torch.sum(mask_t, dim=1)
+                    s = torch.sum(hs*mask_s, dim=1) / torch.sum(mask_s, dim=1)
+                    t = torch.sum(ht*mask_t, dim=1) / torch.sum(mask_t, dim=1)
                 elif self.pooling == 'cls':
                     s = h_xy[:, 0, :] # take embedding of <cls>
                     t = h_xy[:,ls+1,:] # take embedding of <sep>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
-                sim = F.cosine_similarity(norm(s,1), norm(t,1), dim=1, eps=1e-12).cpu().detach().numpy()
-                print(sim)
-                sys.exit()
+                s = F.normalize(s,p=2,dim=1,eps=1e-12)
+                t = F.normalize(t,p=2,dim=1,eps=1e-12)
+                sim = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
 
                 ### output
                 if self.matrix:
