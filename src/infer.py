@@ -37,7 +37,7 @@ class Infer():
             self.model.cuda()
         self.load_checkpoint()
 
-        self.align_scale = 0.001
+        self.align_scale = opts.align_scale
         self.batch_size = opts.batch_size
         self.pooling = opts.pooling
         self.matrix = opts.matrix
