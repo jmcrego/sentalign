@@ -206,6 +206,8 @@ class Trainer():
     def format_batch(self, batch, step_mlm, step_ali):
         xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
         #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
+        mask_xy = torch.as_tensor((xy != self.vocab.idx_pad))
+        #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
         npred_mlm = 0
         npred_ali = 0
         if step_mlm['w'] > 0.0:
@@ -217,8 +219,6 @@ class Trainer():
             #xy_mask [batch_size, max_len] contains the original words concat(x,y), some will be masked            [input for MLM]
             xy_refs = torch.ones_like(xy, dtype=torch.int64) * self.vocab.idx_pad #[batch_size, max_len] will contain the original value of masked words in xy <pad> for the rest
             #xy_refs [batch_size, max_len] contains the original value of masked words; <pad> for the rest         [reference for MLM]
-            mask_xy = torch.as_tensor((xy != self.vocab.idx_pad))                 #[batch_size, max_len] contains true for words, False for <pad>
-            #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
             for i in range(xy.shape[0]):
                 for j in range(xy.shape[1]):
                     if not self.vocab.is_reserved(xy[i,j]):
@@ -236,7 +236,6 @@ class Trainer():
         else:
             xy_mask = []
             xy_refs = []
-            mask_xy = []
 
 
         if step_ali['w'] > 0.0:
@@ -259,10 +258,10 @@ class Trainer():
 
         if self.cuda:
             xy = xy.cuda()
+            mask_xy = mask_xy.cuda()
             if step_mlm['w'] > 0.0:
                 xy_mask = xy_mask.cuda()
                 xy_refs = xy_refs.cuda()
-                mask_xy = mask_xy.cuda()
             if step_ali['w'] > 0.0:
                 mask_x = mask_x.cuda()
                 mask_y = mask_y.cuda()

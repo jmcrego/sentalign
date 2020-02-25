@@ -84,23 +84,13 @@ class Align(nn.Module):
         logging.info('built criterion (align)')
         
     def forward(self, S_st, y, mask_s, mask_t):
-        #print('S_st',S_st.shape)
-        #print('y',y.shape)
-        #print('mask_s',mask_s.shape)
-        #print('mask_t',mask_t.shape)
-        #print(S_st[0])
-        #print(y[0])
-        #print(mask_s[0])
-        #print(mask_t[0])
-
         ### considering S_st * y:
         # different sign (success)
         # same sign (mistake)
         error = torch.log(1.0 + torch.exp(S_st * y))
         mask_s = mask_s.unsqueeze(-1) #[bs, ls, 1]
         mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
-        batch_error = torch.sum(error * mask_s * mask_t) ### discard error of padded words
-        return batch_error #total loss of this batch (not normalized)
+        return torch.sum(error * mask_s * mask_t) ### discard error of padded words (total loss of this batch, not normalized)
 
 
 
