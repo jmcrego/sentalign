@@ -104,8 +104,8 @@ class Infer():
                     S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
                     ### and i show the alignments
                     align = []
-                    align.append(['{:.4f}'.format(sim)] + src) #mean pooling is added here
-                    for t in range(len(tgt)):
+                    align.append(['{:.4f}'.format(sim)] + batch.src) #mean pooling is added here
+                    for t in range(len(batch.tgt)):
                         row = []
                         for s in range(len(src)):
                             row.append('{:.2f}'.format(S_st[0,2+s,t+2]))
