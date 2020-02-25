@@ -40,8 +40,8 @@ class Infer():
         self.align_scale = 0.001
         self.batch_size = 4
         self.pooling = opts.pooling
+        self.matrix = opts.matrix
         self.token = None
-        self.matrix = True
 #        self.token = OpenNMTTokenizer(**opts.cfg['token'])
 
     def load_checkpoint(self):
