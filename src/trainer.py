@@ -183,24 +183,25 @@ class Trainer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_valid:
-                if not self.sim_run: ### pre-training (MLM)
-                    step = 'mlm'
-                    x, x_mask, y_mask = self.mlm_batch_cuda(batch)
-                    n_predictions = torch.sum((y_mask != self.vocab.idx_pad)).data
-                    if n_predictions == 0: #nothing to predict
+                xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
+                loss = 0.0
+                loss_mlm = 0.0
+                loss_ali = 0.0
+                if self.step_mlm['w'] > 0.0: ### (MLM)
+                    h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
+                    if npred_mlm == 0: 
                         logging.info('batch with nothing to predict')
                         continue
-                    h = self.model.forward(x,x_mask)
-                    batch_loss = self.computeloss(h, y_mask)
-                else: ### fine-tunning (SIM)
-                    step = 'sim'
-                    x1, x2, l1, l2, x1_mask, x2_mask, y, mask_s, mask_t = self.sim_batch_cuda(batch) 
-                    n_predictions = x1.size(0)
-                    h1 = self.model.forward(x1,x1_mask)
-                    h2 = self.model.forward(x2,x2_mask)
-                    batch_loss = self.computeloss(h1, h2, l1, l2, y, mask_s, mask_t)
-                ds.add_batch(batch_loss,n_predictions)
-            ds.report(self.n_steps_so_far,step,'[Valid]',self.cuda)
+                    batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
+                    loss_mlm = batch_loss_mlm / npred_mlm
+                    loss += self.step_mlm['w'] * loss_mlm
+                if self.step_ali['w'] > 0.0: ### (ALI)
+                    h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
+                    batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_xy)
+                    loss_ali = batch_loss_ali / npred_ali
+                    loss += self.step_ali['w'] * loss_ali
+                ds.add_batch(loss,loss_mlm,loss_ali)
+            ds.report(self.n_steps_so_far,'[Valid]',self.cuda)
 
     def format_batch(self, batch, step_mlm, step_ali):
         xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
