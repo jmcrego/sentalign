@@ -115,13 +115,13 @@ class Infer():
                     if self.matrix:
                         print_matrix(S_st[b], batch.src[b], batch.tgt[b], sim[b], batch.indexs[b])
                     else:
-                        print("{}\t{:.4f}\t{}\t{}".format(batch.indexs[b],sim[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
+                        print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],sim[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
         logging.info('End testing')
 
 def print_matrix(S_st, src, tgt, sim, index):
     align = []
-    align.append(['{:.4f}'.format(sim)] + src) #mean pooling is added here
+    align.append(['{:.6f}'.format(sim)] + src) #mean pooling is added here
     for t in range(len(tgt)):
         row = []
         for s in range(len(src)):
