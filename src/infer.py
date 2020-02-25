@@ -105,7 +105,7 @@ class Infer():
 
                 for b in range(len(sim)):
                     if self.matrix:
-                        print_matrix(S_st, batch.src, batch.tgt, sim, batch.indexs[b])
+                        self.print_matrix(S_st, batch.src, batch.tgt, sim, batch.indexs[b])
                     else:
                         print(batch.indexs[b],sim[b])
 
