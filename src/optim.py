@@ -126,7 +126,6 @@ class ComputeLossALI:
     def __init__(self, criterion, step_ali, opt=None):
         self.criterion = criterion
         self.align_scale = step_ali['align_scale']
-        self.R = step_ali['R']
         self.opt = opt
 
     def __call__(self, h_st, y, mask_st): 
@@ -145,16 +144,4 @@ class ComputeLossALI:
             logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
         loss = self.criterion(S_st,y,mask_s,mask_t)
         return loss #not normalized
-
-
-    def aggr(self,S_st,mask_s): #foreach tgt word finds the aggregation over all src words
-#        print('mask_s',mask_s[0])
-        exp_rS = torch.exp(S_st * self.R)
-#        print('exp_rS',exp_rS[0])
-        sum_exp_rS = torch.sum(exp_rS * mask_s,dim=1) #sum over all source words (source words nor used are masked)
-#        print('sum_exp_rS',sum_exp_rS[0])
-        log_sum_exp_rS_div_R = torch.log(sum_exp_rS) / self.R
-#        print('log_sum_exp_rS_div_R',log_sum_exp_rS_div_R[0])
-        return log_sum_exp_rS_div_R
-
 
