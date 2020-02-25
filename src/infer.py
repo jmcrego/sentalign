@@ -107,9 +107,9 @@ class Infer():
                     align.append(['{:.4f}'.format(sim)] + batch.src) #mean pooling is added here
                     for t in range(len(batch.tgt)):
                         row = []
-                        for s in range(len(src)):
+                        for s in range(len(batch.src)):
                             row.append('{:.2f}'.format(S_st[0,2+s,t+2]))
-                        align.append([tgt[t]] + row)
+                        align.append([batch.tgt[t]] + row)
                     #print(np.matrix(align))
                     #s = [[str(e) for e in row] for row in align]
                     lens = [max(map(len, col)) for col in zip(*align)]
