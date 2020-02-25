@@ -112,15 +112,12 @@ class Infer():
         logging.info('End testing')
 
 def print_matrix(S_st, src, tgt, sim, index):
-
-
-    print(sim)
     align = []
     align.append(['{:.4f}'.format(sim)] + src) #mean pooling is added here
     for t in range(len(tgt)):
         row = []
-        for s in range(len(batch.src[b])):
-            row.append('{:.2f}'.format(S_st[b,2+s,t+2]))
+        for s in range(len(src)):
+            row.append('{:.2f}'.format(S_st[2+s,t+2]))
         align.append([tgt[t]] + row)
     #print(np.matrix(align))
     #s = [[str(e) for e in row] for row in align]
