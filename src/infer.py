@@ -97,8 +97,9 @@ class Infer():
                     t = ht[:, 0, :] # take embedding of first token <cls>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
-                sim = F.cosine_similarity(self.norm(s), self.norm(t), dim=1, eps=1e-12)[0].cpu().detach().numpy()
-
+                sim = F.cosine_similarity(self.norm(s), self.norm(t), dim=1, eps=1e-12).cpu().detach().numpy()
+                print(sim)
+                
                 ### output
                 if self.matrix:
                     S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
@@ -118,7 +119,7 @@ class Infer():
                     print(batch.index)
                     print('\n'.join(table))
                 else:
-                    print(batch.index,sim)
+                    print(batch.indexs,sim)
 
         logging.info('End testing')
 
