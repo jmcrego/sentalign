@@ -124,7 +124,7 @@ def print_matrix(S_st, src, tgt, sim, index):
     lens = [max(map(len, col)) for col in zip(*align)]
     fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
     table = [fmt.format(*row) for row in align]
-    print(index)
+    print(index,src,tgt)
     print('\n'.join(table))
 
 
