@@ -107,7 +107,7 @@ class Infer():
                     if self.matrix:
                         print_matrix(S_st[b], batch.src[b], batch.tgt[b], sim[b], batch.indexs[b])
                     else:
-                        print(batch.indexs[b],sim[b],src[b],tgt[b])
+                        print(batch.indexs[b],sim[b],batch.src[b],batch.tgt[b])
 
         logging.info('End testing')
 
