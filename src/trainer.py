@@ -140,13 +140,11 @@ class Trainer():
                     continue
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
-                print('loss_mlm',loss_mlm)
                 loss += self.step_mlm['w'] * loss_mlm
             if self.step_ali['w'] > 0.0: ### (ALI)
                 h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
                 batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_xy)
                 loss_ali = batch_loss_ali / npred_ali
-                print('loss_ali',loss_ali)
                 loss += self.step_ali['w'] * loss_ali
             ts.add_batch(loss,loss_mlm,loss_ali)
 
