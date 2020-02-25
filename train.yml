@@ -20,11 +20,12 @@ valid:
 #  - [ './data/clean.TED2013.en-fr.en.val.tokc',      './data/clean.TED2013.en-fr.fr.val.tokc',      './data/clean.TED2013.en-fr.en.val.tokc.en2fr.gdfa' ]
 #  - [ './data/clean.Wikipedia.en-fr.en.val.tokc',    './data/clean.Wikipedia.en-fr.fr.val.tokc',    './data/clean.Wikipedia.en-fr.en.val.tokc.en2fr.gdfa' ]
 max_length: 8
-swap_bitext: 0.5
 batch_size: [32, 32]
+swap_bitext: 0.5
+uneven_bitext: 0.1
 steps: 
   mlm:  { w: 0.5, p_mask: 0.15, r_same: 0.1, r_rand: 0.1 }
-  ali:  { w: 5.0, align_scale: 0.001 } ### add p_uneven
+  ali:  { w: 5.0, align_scale: 0.001 } 
 checkpoint_every_steps: 5000
 validation_every_steps: 5000
 report_every_steps: 100

@@ -177,7 +177,7 @@ class batch():
                     pairs.append([s,t])
             self.a.append(pairs)
 
-    def pad(self):
+    def pad(self,p_uneven=0.0):
         #convert self.lsrc/self.ltgt into np array
         self.lsrc = np.array(self.lsrc)
         self.maxlsrc = np.max(self.lsrc)
@@ -203,9 +203,24 @@ class batch():
         if len(self.a) > 0:
             self.ali = np.array(self.ali)
 
+        self.is_uneven = [False] * len(self.indexs)
+        if p_uneven > 0.0:
+            for b in range(1,len(self.indexs)):
+                if random.random() < p_uneven:
+                    self.is_uneven[b] = True
+                    self.ltgt[b] = self.ltgt[b-1]
+                    self.tidx[b] = self.sidx[b-1]
+                    self.tgt[b] = self.tgt[b-1]
+                    self.a[b] = [] 
+                    self.ali[b,:,:] = 1.0 ### all pairs unaligned
+
+
+
     def dump(self):
         print('indexs')
         print(self.indexs)
+        print('is_uneven')
+        print(self.is_uneven)
         print('[bs, ls, lt]')
         print('[{}, {}, {}]'.format(len(self.sidx),self.maxlsrc,self.maxltgt))
         print('src')
@@ -371,7 +386,7 @@ class Dataset():
         logging.info('found {} sentences ({} filtered), {} tokens ({:.3f}% OOVs) in files: [{}]'.format(nsent,nfilt,ntoks,100.0*nunks/ntoks,fsrc))
 
 
-    def build_batches(self, batch_size, p_swap=0.0):
+    def build_batches(self, batch_size, p_swap=0.0, p_uneven=0.0):
         self.batches = []
         self.batch_size = batch_size
         if len(self.idx) == 0:
@@ -394,7 +409,7 @@ class Dataset():
 
             currbatch.add(index,self.idx[index],self.snt[index])
             if len(currbatch) == self.batch_size or i == len(indexs)-1: ### record new batch
-                currbatch.pad()
+                currbatch.pad(p_uneven)
                 self.batches.append(deepcopy(currbatch))
                 currbatch = batch()
         logging.info('built {} batches'.format(len(self.batches)))

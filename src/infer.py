@@ -68,7 +68,7 @@ class Infer():
             logging.error('2 or 3 files must be passed for inference')
             sys.exit()
 
-        self.data_test.build_batches(self.batch_size,p_swap=0.0)
+        self.data_test.build_batches(self.batch_size,p_swap=0.0,p_uneven=0.0)
 
 
         with torch.no_grad():
@@ -97,8 +97,8 @@ class Infer():
                     t = h_xy[:,ls+1,:] # take embedding of <sep>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
-#                s = F.normalize(s,p=2,dim=1,eps=1e-12)
-#                t = F.normalize(t,p=2,dim=1,eps=1e-12)
+                s = F.normalize(s,p=2,dim=1,eps=1e-12)
+                t = F.normalize(t,p=2,dim=1,eps=1e-12)
                 sim = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
 
                 ### output

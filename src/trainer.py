@@ -71,6 +71,7 @@ class Trainer():
         self.batch_size = opts.train['batch_size']
         self.max_length = opts.train['max_length']
         self.swap_bitext = opts.train['swap_bitext'] 
+        self.uneven_bitext = opts.train['uneven_bitext'] 
         self.step_mlm = opts.train['steps']['mlm']
         self.step_ali = opts.train['steps']['ali']
 
@@ -109,13 +110,13 @@ class Trainer():
         self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True)
         for (fs,ft,fa) in opts.train['train']:
             self.data_train.add3files(fs,ft,fa)
-        self.data_train.build_batches(self.batch_size[0],self.swap_bitext)
+        self.data_train.build_batches(self.batch_size[0],self.swap_bitext,self.uneven_bitext)
 
         logging.info('read Valid data')
         self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False)
         for (fs,ft,fa) in opts.train['valid']:
             self.data_valid.add3files(fs,ft,fa)
-        self.data_valid.build_batches(self.batch_size[1],self.swap_bitext)
+        self.data_valid.build_batches(self.batch_size[1],self.swap_bitext,self.uneven_bitext)
 
 
     def __call__(self):
@@ -127,7 +128,7 @@ class Trainer():
             xy, xy_mask, xy_refs, mask_xy, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
             #xy      [batch_size, ls+lt] contains the original words after concat(x,y)                          [input for ALI]
             #matrix  [bs,ls,lt] the alignment between src/tgt (<cls>/<sep> not included)                        [reference for ALI]
-            #xy_mask [batch_size, ls+lt] contains the original words concat(x,y), some are be masked            [input for MLM]
+            #xy_mask [batch_size, ls+lt] contains the original words concat(x,y), some masked                   [input for MLM]
             #xy_refs [batch_size, ls+lt] contains the original value of masked words; <pad> for the rest        [reference for MLM]
             #mask_xy [batch_size, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included)    [mask in MLM and ALI forward step]
             loss = 0.0
