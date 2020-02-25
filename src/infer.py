@@ -112,6 +112,8 @@ class Infer():
         logging.info('End testing')
 
 def print_matrix(S_st, src, tgt, sim, index):
+
+
     print(sim)
     align = []
     align.append(['{:.4f}'.format(sim)] + src) #mean pooling is added here
