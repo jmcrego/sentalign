@@ -19,7 +19,7 @@ valid:
   - [ './data/clean.news-commentary-v14.en.val.tokc','./data/clean.news-commentary-v14.fr.val.tokc','./data/clean.news-commentary-v14.en.val.tokc.en2fr.gdfa' ]
 #  - [ './data/clean.TED2013.en-fr.en.val.tokc',      './data/clean.TED2013.en-fr.fr.val.tokc',      './data/clean.TED2013.en-fr.en.val.tokc.en2fr.gdfa' ]
 #  - [ './data/clean.Wikipedia.en-fr.en.val.tokc',    './data/clean.Wikipedia.en-fr.fr.val.tokc',    './data/clean.Wikipedia.en-fr.en.val.tokc.en2fr.gdfa' ]
-max_length: 50
+max_length: 8
 swap_bitext: 0.5
 batch_size: [32, 32]
 steps: 

@@ -83,23 +83,23 @@ class Align(nn.Module):
         super(Align, self).__init__()
         logging.info('built criterion (align)')
         
-    def forward(self, aggr, y, mask_t):
-        #print('aggr',aggr[0])
-        #print('y',y[0])
-        sign = torch.ones(aggr.size(), device=y.device) * y.unsqueeze(-1) #[bs,lt] (by default ones builds on CPU)
-        #aggr sign aggr*sign loss
-        #-------------------------------
-        # >0    -1 (par)  <0   ~0
-        # <0    -1        >0   >0 (large)
-        # >0    +1 (div)  >0   >0 (large)
-        # <0    +1        <0   ~0
-        ##read like: when aggr > 0 (target related to source) and -sign is -1 (parallel) the loss is very small 
-        #i change the sign since i used -1 (uneven) +1 (parallel)
-        error = torch.log(1.0 + torch.exp(aggr * sign)) #equation (3) error of each tgt word
-        #print('error',error[0])
-        sum_error = torch.sum(error * mask_t, dim=1) #error of each sentence in batch
-        #print('sum_error',sum_error[0])
-        batch_error = torch.sum(sum_error)
+    def forward(self, S_st, y, mask_s, mask_t):
+        #print('S_st',S_st.shape)
+        #print('y',y.shape)
+        #print('mask_s',mask_s.shape)
+        #print('mask_t',mask_t.shape)
+        #print(S_st[0])
+        #print(y[0])
+        #print(mask_s[0])
+        #print(mask_t[0])
+
+        ### considering S_st * y:
+        # different sign (success)
+        # same sign (mistake)
+        error = torch.log(1.0 + torch.exp(S_st * y))
+        mask_s = mask_s.unsqueeze(-1) #[bs, ls, 1]
+        mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
+        batch_error = torch.sum(error * mask_s * mask_t) ### discard error of padded words
         return batch_error #total loss of this batch (not normalized)
 
 
@@ -130,21 +130,20 @@ class ComputeLossALI:
         self.opt = opt
 
     def __call__(self, h_st, y, mask_st): 
-        #h_st [bs, len, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
-        #y [bs, lsrc, ltgt] alignment matrix
-        #mask_st [bs,sl]
-
-        hs = h_st
-        ht = h_st
-        mask_s = mask_s.unsqueeze(-1).type(torch.float64)
-        mask_t = mask_t.unsqueeze(-1).type(torch.float64)
-
-        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
+        #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
+        #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
+        #mask_s [bs,ls]
+        #mask_t [bs,lt]
+        ls = y.shape[1]
+        lt = y.shape[2]
+        hs = h_st[:,1:ls+1,:]
+        ht = h_st[:,ls+2:,:]
+        mask_s = mask_st[:,1:ls+1].type(torch.float64)
+        mask_t = mask_st[:,ls+2:,].type(torch.float64)
+        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]
         if torch.isnan(S_st).any():
             logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
-        #print('S_st',S_st[0])
-        aggr_t = self.aggr(S_st,mask_s) #equation (2) #for each tgt word, consider the aggregated matching scores over the source sentence words
-        loss = self.criterion(aggr_t,y,mask_t.squeeze())
+        loss = self.criterion(S_st,y,mask_s,mask_t)
         return loss #not normalized
 
 

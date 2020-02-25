@@ -126,12 +126,10 @@ class Trainer():
             self.model.train()
             xy, xy_mask, xy_refs, mask_xy, mask_x, mask_y, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
             #xy      [batch_size, ls+lt] contains the original words after concat(x,y)                          [input for ALI]
+            #matrix  [bs,ls,lt] the alignment between src/tgt (<cls>/<sep> not included)                        [reference for ALI]
             #xy_mask [batch_size, ls+lt] contains the original words concat(x,y), some are be masked            [input for MLM]
             #xy_refs [batch_size, ls+lt] contains the original value of masked words; <pad> for the rest        [reference for MLM]
-            #matrix  [bs,ls-1,lt-1] the alignment between src/tgt (<cls>/<sep> not included)                    [reference for ALI]
-            #mask_xy [batch_size, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
-            #mask_x  [batch_size, ls+lt] True for x words in xy; false for rest (<cls> not included)
-            #mask_y  [batch_size, ls+lt] True for y words in xy; false for rest (<sep> not included)
+            #mask_xy [batch_size, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included)    [mask in MLM and ALI forward step]
             loss = 0.0
             loss_mlm = 0.0
             loss_ali = 0.0
@@ -142,13 +140,13 @@ class Trainer():
                     continue
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
+                print('loss_mlm',loss_mlm)
                 loss += self.step_mlm['w'] * loss_mlm
-            if self.step_ali['w'] > 0.0 and False: ### (ALI)
-                h_xy = self.model.forward(xy, mask_xy)
-                h_x = h_xy[:,:maxslen,:]
-                h_y = h_xy[:,maxslen:,:]
-                batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_x, mask_y)
+            if self.step_ali['w'] > 0.0: ### (ALI)
+                h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
+                batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_xy)
                 loss_ali = batch_loss_ali / npred_ali
+                print('loss_ali',loss_ali)
                 loss += self.step_ali['w'] * loss_ali
             ts.add_batch(loss,loss_mlm,loss_ali)
 
@@ -163,9 +161,8 @@ class Trainer():
             ###
             if self.report_every_steps > 0 and self.n_steps_so_far % self.report_every_steps == 0:
                 ts.report(self.n_steps_so_far,'[Train]',self.cuda)
-
             ###
-            ### saved
+            ### save checkpoint
             ###
             if self.checkpoint_every_steps > 0 and self.n_steps_so_far % self.checkpoint_every_steps == 0:
                 self.save_checkpoint()
@@ -217,7 +214,7 @@ class Trainer():
             r_same = step_mlm['r_same']
             r_rand = step_mlm['r_rand']
 
-            xy_mask = torch.ones_like(xy, dtype=torch.int64) * xy                 #[batch_size, max_len] contains the original words concat(x,y). some will be masked
+            xy_mask = torch.ones_like(xy, dtype=torch.int64) * xy                 #[batch_size, max_len] contains the original words concat(x,y). some are masked
             #xy_mask [batch_size, max_len] contains the original words concat(x,y), some will be masked            [input for MLM]
             xy_refs = torch.ones_like(xy, dtype=torch.int64) * self.vocab.idx_pad #[batch_size, max_len] will contain the original value of masked words in xy <pad> for the rest
             #xy_refs [batch_size, max_len] contains the original value of masked words; <pad> for the rest         [reference for MLM]
