@@ -107,7 +107,7 @@ class Infer():
                     if self.matrix:
                         print_matrix(S_st[b], batch.src[b], batch.tgt[b], sim[b], batch.indexs[b])
                     else:
-                        print(batch.indexs[b],sim[b])
+                        print(batch.indexs[b],sim[b],src[b],tgt[b])
 
         logging.info('End testing')
 
@@ -124,7 +124,7 @@ def print_matrix(S_st, src, tgt, sim, index):
     lens = [max(map(len, col)) for col in zip(*align)]
     fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
     table = [fmt.format(*row) for row in align]
-    print(index,src,tgt)
+    print(index)
     print('\n'.join(table))
 
 
