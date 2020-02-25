@@ -105,7 +105,7 @@ class Infer():
 
                 for b in range(len(sim)):
                     if self.matrix:
-                        print_matrix(S_st, batch.src, batch.tgt, sim[b], batch.indexs[b])
+                        print_matrix(S_st[b], batch.src[b], batch.tgt[b], sim[b], batch.indexs[b])
                     else:
                         print(batch.indexs[b],sim[b])
 
@@ -117,7 +117,7 @@ def print_matrix(S_st, src, tgt, sim, index):
     for t in range(len(tgt)):
         row = []
         for s in range(len(src)):
-            row.append('{:.2f}'.format(S_st[2+s,t+2]))
+            row.append('{:.2f}'.format(S_st[s,t]))
         align.append([tgt[t]] + row)
     #print(np.matrix(align))
     #s = [[str(e) for e in row] for row in align]
