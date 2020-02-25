@@ -209,7 +209,7 @@ class batch():
                 if random.random() < p_uneven:
                     self.is_uneven[b] = True
                     self.ltgt[b] = self.ltgt[b-1]
-                    self.tidx[b] = self.sidx[b-1]
+                    self.tidx[b] = self.tidx[b-1]
                     self.tgt[b] = self.tgt[b-1]
                     self.a[b] = [] 
                     self.ali[b,:,:] = 1.0 ### all pairs unaligned
