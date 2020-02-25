@@ -102,27 +102,31 @@ class Infer():
                 ### output
                 if self.matrix:
                     S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
-                    for b in range(len(sim)):
-                        ### and i show the alignments
-                        align = []
-                        align.append(['{:.4f}'.format(sim[b])] + batch.src[b]) #mean pooling is added here
-                        for t in range(len(batch.tgt[b])):
-                            row = []
-                            for s in range(len(batch.src[b])):
-                                row.append('{:.2f}'.format(S_st[b,2+s,t+2]))
-                            align.append([batch.tgt[b,t]] + row)
-                        #print(np.matrix(align))
-                        #s = [[str(e) for e in row] for row in align]
-                        lens = [max(map(len, col)) for col in zip(*align)]
-                        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
-                        table = [fmt.format(*row) for row in align]
-                        print(batch.indexs[b])
-                        print('\n'.join(table))
-                else:
-                    for b in range(len(sim)):
-                        print(batch.indexs[b],sim)
+
+                for b in range(len(sim)):
+                    if self.matrix:
+                        print_matrix(S_st, batch.src, batch.tgt, sim, batch.indexs[b])
+                    else:
+                        print(batch.indexs[b],sim[b])
 
         logging.info('End testing')
+
+    def print_matrix(self, S_st, src, tgt, sim, index):
+        align = []
+        align.append(['{:.4f}'.format(sim)] + src) #mean pooling is added here
+        for t in range(len(tgt)):
+            row = []
+            for s in range(len(batch.src[b])):
+                row.append('{:.2f}'.format(S_st[b,2+s,t+2]))
+            align.append([tgt[t]] + row)
+        #print(np.matrix(align))
+        #s = [[str(e) for e in row] for row in align]
+        lens = [max(map(len, col)) for col in zip(*align)]
+        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+        table = [fmt.format(*row) for row in align]
+        print(index)
+        print('\n'.join(table))
+
 
     def norm(self,x):
         return F.normalize(x,p=2,dim=1,eps=1e-12)
