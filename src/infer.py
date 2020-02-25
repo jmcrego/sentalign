@@ -97,7 +97,7 @@ class Infer():
                     t = ht[:, 0, :] # take embedding of first token <cls>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
-                sim = F.cosine_similarity(self.norm(s), self.norm(t), dim=1, eps=1e-12).cpu().detach().numpy()
+                sim = F.cosine_similarity(norm(s), norm(t), dim=1, eps=1e-12).cpu().detach().numpy()
 
                 ### output
                 if self.matrix:
@@ -105,28 +105,28 @@ class Infer():
 
                 for b in range(len(sim)):
                     if self.matrix:
-                        self.print_matrix(S_st, batch.src, batch.tgt, sim, batch.indexs[b])
+                        print_matrix(S_st, batch.src, batch.tgt, sim, batch.indexs[b])
                     else:
                         print(batch.indexs[b],sim[b])
 
         logging.info('End testing')
 
-    def print_matrix(self, S_st, src, tgt, sim, index):
-        align = []
-        align.append(['{:.4f}'.format(sim)] + src) #mean pooling is added here
-        for t in range(len(tgt)):
-            row = []
-            for s in range(len(batch.src[b])):
-                row.append('{:.2f}'.format(S_st[b,2+s,t+2]))
-            align.append([tgt[t]] + row)
-        #print(np.matrix(align))
-        #s = [[str(e) for e in row] for row in align]
-        lens = [max(map(len, col)) for col in zip(*align)]
-        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
-        table = [fmt.format(*row) for row in align]
-        print(index)
-        print('\n'.join(table))
+def print_matrix(S_st, src, tgt, sim, index):
+    align = []
+    align.append(['{:.4f}'.format(sim)] + src) #mean pooling is added here
+    for t in range(len(tgt)):
+        row = []
+        for s in range(len(batch.src[b])):
+            row.append('{:.2f}'.format(S_st[b,2+s,t+2]))
+        align.append([tgt[t]] + row)
+    #print(np.matrix(align))
+    #s = [[str(e) for e in row] for row in align]
+    lens = [max(map(len, col)) for col in zip(*align)]
+    fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+    table = [fmt.format(*row) for row in align]
+    print(index)
+    print('\n'.join(table))
 
 
-    def norm(self,x):
-        return F.normalize(x,p=2,dim=1,eps=1e-12)
+def norm(x):
+    return F.normalize(x,p=2,dim=1,eps=1e-12)
