@@ -67,7 +67,7 @@ class Trainer():
         self.report_every_steps = opts.train['report_every_steps']
         self.validation_every_steps = opts.train['validation_every_steps']
         self.checkpoint_every_steps = opts.train['checkpoint_every_steps']
-        self.average_last_n = opts.train['average_last_n']
+        self.keep_last_n = opts.train['keep_last_n']
         self.batch_size = opts.train['batch_size']
         self.max_length = opts.train['max_length']
         self.swap_bitext = opts.train['swap_bitext'] 
@@ -294,7 +294,7 @@ class Trainer():
         torch.save(state, file)
         logging.info('saved checkpoint {}'.format(file))
         files = sorted(glob.glob(self.dir + '/checkpoint.???????.pth')) 
-        while len(files) > self.average_last_n:
+        while len(files) > self.keep_last_n:
             f = files.pop(0)
             os.remove(f) ### first is the oldest
             logging.debug('removed checkpoint {}'.format(f))
