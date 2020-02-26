@@ -336,6 +336,10 @@ class Dataset():
         nsent = 0
         nfilt = 0
         for ls, lt in zip(fs,ft):
+            if fsrc.endswith('.gz'): 
+                ls = ls.decode('utf8')
+            if ftgt.endswith('.gz'): 
+                lt = lt.decode('utf8')
             ### src tokenize
             if self.token is not None:
                 ssnt = self.token.tokenize(ls.strip(' \n'))
@@ -374,6 +378,8 @@ class Dataset():
         nsent = 0
         nfilt = 0
         for ls in fs:
+            if fsrc.endswith('.gz'): 
+                ls = ls.decode('utf8')
             ### src tokenize
             if self.token is not None:
                 ssnt = self.token.tokenize(ls.strip(' \n'))
