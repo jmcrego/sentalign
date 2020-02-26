@@ -12,7 +12,7 @@ from torch.nn import functional as F
 from torch.autograd import Variable
 from src.dataset import Vocab, Dataset, OpenNMTTokenizer, batch
 from src.model import make_model
-from src.optim import NoamOpt, LabelSmoothing, Align, ComputeLossMLM, ComputeLossALI
+from src.optim import NoamOpt, LabelSmoothing, Align, Cosine, ComputeLossMLM, ComputeLossALI, ComputeLossCOS
 
 
 def sequence_mask(lengths, mask_n_initials=0):
@@ -29,15 +29,17 @@ class stats():
     def __init__(self):
         self.n_steps = 0
         self.sum_loss = 0.0
-        self.sum_loss_ali = 0.0
         self.sum_loss_mlm = 0.0
+        self.sum_loss_ali = 0.0
+        self.sum_loss_cos = 0.0
         self.start = time.time()
 
-    def add_batch(self,loss,loss_mlm,loss_ali):
+    def add_batch(self,loss,loss_mlm,loss_ali,loss_cos):
         self.n_steps += 1
         self.sum_loss += loss
-        self.sum_loss_ali += loss_ali
         self.sum_loss_mlm += loss_mlm
+        self.sum_loss_ali += loss_ali
+        self.sum_loss_cos += loss_cos
 
     def report(self,n_steps,trn_val_tst,cuda):
         if False and cuda:
@@ -47,14 +49,16 @@ class stats():
             Gb_used = torch.cuda.get_device_properties(device=device).total_memory / 1073741824
 
         loss_avg = self.sum_loss/self.n_steps
-        loss_ali_avg = self.sum_loss_ali/self.n_steps
         loss_mlm_avg = self.sum_loss_mlm/self.n_steps
-        logging.info("{} n_steps: {} Loss: {:.4f} (mlm:{:.4f}, ali:{:.4f}) steps/sec: {:.2f}".format(trn_val_tst, n_steps, loss_avg, loss_mlm_avg, loss_ali_avg, self.n_steps/(time.time()-self.start)))
+        loss_ali_avg = self.sum_loss_ali/self.n_steps
+        loss_cos_avg = self.sum_loss_cos/self.n_steps
+        logging.info("{} n_steps: {} ({} steps/sec) Loss: {:.4f} (mlm:{:.4f}, ali:{:.4f}, cos:{:.4f})".format(trn_val_tst, n_steps, self.n_steps/(time.time()-self.start), loss_avg, loss_mlm_avg, loss_ali_avg, loss_cos_avg))
         #logging.info('{}'.format(torch.cuda.memory_summary(device=device, abbreviated=False)))
         self.n_steps = 0
         self.sum_loss = 0.0
         self.sum_loss_mlm = 0.0
         self.sum_loss_ali = 0.0
+        self.sum_loss_cos = 0.0
         self.start = time.time()
 
 
@@ -74,6 +78,7 @@ class Trainer():
         self.uneven_bitext = opts.train['uneven_bitext'] 
         self.step_mlm = opts.train['steps']['mlm']
         self.step_ali = opts.train['steps']['ali']
+        self.step_cos = opts.train['steps']['cos']
 
         V = len(self.vocab)
         N = opts.cfg['num_layers']
@@ -97,14 +102,17 @@ class Trainer():
         self.optimizer = NoamOpt(d_model, factor, warmup_steps, torch.optim.Adam(self.model.parameters(), lr=lrate, betas=(beta1, beta2), eps=eps))
         self.crit_mlm = LabelSmoothing(size=V, padding_idx=self.vocab.idx_pad, smoothing=label_smoothing)
         self.crit_ali = Align()
+        self.crit_cos = Cosine()
 
         if self.cuda:
             self.crit_mlm.cuda()
             self.crit_ali.cuda()
+            self.crit_cos.cuda()
 
         self.load_checkpoint() #loads if exists
         self.computeloss_mlm = ComputeLossMLM(self.model.generator, self.crit_mlm, self.optimizer)
         self.computeloss_ali = ComputeLossALI(self.crit_ali, self.step_ali, self.optimizer)
+        self.computeloss_cos = ComputeLossCOS(self.crit_cos, self.step_cos, self.optimizer)
 
         logging.info('read Train data')
         self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True)
@@ -125,15 +133,17 @@ class Trainer():
         ts = stats()
         for batch in self.data_train:
             self.model.train()
-            xy, xy_mask, xy_refs, mask_xy, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
+            xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
             #xy      [batch_size, ls+lt] contains the original words after concat(x,y)                          [input for ALI]
             #matrix  [bs,ls,lt] the alignment between src/tgt (<cls>/<sep> not included)                        [reference for ALI]
             #xy_mask [batch_size, ls+lt] contains the original words concat(x,y), some masked                   [input for MLM]
             #xy_refs [batch_size, ls+lt] contains the original value of masked words; <pad> for the rest        [reference for MLM]
             #mask_xy [batch_size, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included)    [mask in MLM and ALI forward step]
+            #uneven  [batch_size] 1.0 if uneven, -1.0 if parallel
             loss = 0.0
             loss_mlm = 0.0
             loss_ali = 0.0
+            loss_cos = 0.0
             if self.step_mlm['w'] > 0.0: ### (MLM)
                 h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
                 if npred_mlm == 0: 
@@ -142,12 +152,18 @@ class Trainer():
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
                 loss += self.step_mlm['w'] * loss_mlm
-            if self.step_ali['w'] > 0.0: ### (ALI)
+
+            if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
                 h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
-                batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_xy)
-                loss_ali = batch_loss_ali / npred_ali
-                loss += self.step_ali['w'] * loss_ali
-            ts.add_batch(loss,loss_mlm,loss_ali)
+                if self.step_ali['w'] > 0.0: ### (ALI)
+                    batch_loss_ali = self.computeloss_ali(h_xy, matrix, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
+                    loss_ali = batch_loss_ali / npred_ali
+                    loss += self.step_ali['w'] * loss_ali
+                if self.step_cos['w'] > 0.0: ### (COS)
+                    batch_loss_cos = self.computeloss_cos(h_xy, uneven, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
+                    loss_cos = batch_loss_cos / npred_ali
+                    loss += self.step_cos['w'] * loss_cos
+            ts.add_batch(loss,loss_mlm,loss_ali,loss_cos)
 
             ### gradient computation / model update
             self.optimizer.zero_grad() 
@@ -184,10 +200,11 @@ class Trainer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_valid:
-                xy, xy_mask, xy_refs, mask_xy, matrix, npred_mlm, npred_ali = self.format_batch(batch, self.step_mlm, self.step_ali) 
+                xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos = self.format_batch(batch, self.step_mlm, self.step_ali) 
                 loss = 0.0
                 loss_mlm = 0.0
                 loss_ali = 0.0
+                loss_cos = 0.0
                 if self.step_mlm['w'] > 0.0: ### (MLM)
                     h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
                     if npred_mlm == 0: 
@@ -196,21 +213,30 @@ class Trainer():
                     batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                     loss_mlm = batch_loss_mlm / npred_mlm
                     loss += self.step_mlm['w'] * loss_mlm
-                if self.step_ali['w'] > 0.0: ### (ALI)
+
+                if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
                     h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
-                    batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_xy)
-                    loss_ali = batch_loss_ali / npred_ali
-                    loss += self.step_ali['w'] * loss_ali
-                ds.add_batch(loss,loss_mlm,loss_ali)
+                    if self.step_ali['w'] > 0.0: ### (ALI)
+                        batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_xy)
+                        loss_ali = batch_loss_ali / npred_ali
+                        loss += self.step_ali['w'] * loss_ali
+                    if self.step_cos['w'] > 0.0: ### (COS)
+                        batch_loss_cos = self.computeloss_cos(h_xy, uneven, mask_xy)
+                        loss_cos = batch_loss_cos / npred_cos
+                        loss += self.step_cos['w'] * loss_cos
+                ds.add_batch(loss,loss_mlm,loss_ali,loss_cos)
+
             ds.report(self.n_steps_so_far,'[Valid]',self.cuda)
 
-    def format_batch(self, batch, step_mlm, step_ali):
+    def format_batch(self, batch, step_mlm, step_ali, step_cos):
         xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
         #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
         mask_xy = torch.as_tensor((xy != self.vocab.idx_pad))
         #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
         npred_mlm = 0
         npred_ali = 0
+        npred_cos = 0
+
         if step_mlm['w'] > 0.0:
             p_mask = step_mlm['p_mask']
             r_same = step_mlm['r_same']
@@ -246,6 +272,14 @@ class Trainer():
         else:
             matrix = []
 
+        if step_cos['w'] > 0.0:
+            uneven = (torch.as_tensor(batch.is_uneven,dtype=torch.float64) * 2.0) - 1.0 #-1.0 parallel; 1.0 uneven
+            npred_cos += uneven.numel()
+            #uneven  [bs]
+        else:
+            uneven = []
+
+
         if self.cuda:
             xy = xy.cuda()
             mask_xy = mask_xy.cuda()
@@ -254,8 +288,10 @@ class Trainer():
                 xy_refs = xy_refs.cuda()
             if step_ali['w'] > 0.0:
                 matrix = matrix.cuda()
+            if step_cos['w'] > 0.0:
+                uneven = uneven.cuda()
 
-        return xy, xy_mask, xy_refs, mask_xy, matrix, npred_mlm, npred_ali
+        return xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos
 
 
     def load_checkpoint(self):
