@@ -149,7 +149,7 @@ class Trainer():
             if self.step_mlm['w'] > 0.0: ### (MLM)
                 h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
                 if npred_mlm == 0: 
-                    logging.info('batch with nothing to predict')
+                    logging.info('batch with no masked token to predict')
                     continue
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
