@@ -292,6 +292,9 @@ class Dataset():
         nsent = 0
         nfilt = 0
         for ls, lt, la in zip(fs,ft,fa):
+            print(ls)
+            print(lt)
+            print(la)
             ssnt = self.tokenize(ls)
             sidx = self.tok2idx(ssnt)
             tsnt = self.tokenize(lt)
