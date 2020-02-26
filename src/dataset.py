@@ -129,7 +129,7 @@ class batch():
         self.tidx = [] #batch of [<sep>, <t1>, ..., <tJ>, [<pad>]*]
         self.lsrc = [] #[I1, I2, ...] size of src sentences including <cls>
         self.ltgt = [] #[J1, J2, ...] size of src sentences including <sep>
-        self.a = [] #batch of alignment pairs [[0,0], [1,1], ...]
+        self.link = [] #batch of alignment pairs [[0,0], [1,1], ...]
         self.indexs = [] #[i1, i2, ...] position in the original file
         self.p_swap = p_swap
 
@@ -167,15 +167,14 @@ class batch():
             self.ltgt.append(len(tidx)) #ltgt is the position of tJ
             self.tidx.append(tidx) ### [<sep>, <t1>, ..., <tJ>]
 
-        if len(ali) > 0:
-            pairs = []
-            for st in ali:
-                s,t = map(int, st.split('-'))
-                if do_swap:
-                    pairs.append([t,s])
-                else:
-                    pairs.append([s,t])
-            self.a.append(pairs)
+        pairs = []
+        for st in ali:
+            s,t = map(int, st.split('-'))
+            if do_swap:
+                pairs.append([t,s])
+            else:
+                pairs.append([s,t])
+        self.link.append(pairs)
 
     def pad(self,p_uneven=0.0):
         #convert self.lsrc/self.ltgt into np array
@@ -191,16 +190,16 @@ class batch():
             if len(self.tidx) > 0:
                 self.tidx[b] += [idx_pad]*(self.maxltgt-len(self.tidx[b]))
         ### build alignment matrix
-        if len(self.a) > 0:
+        if len(self.link) > 0:
             self.ali = np.full((bs, self.maxlsrc-1, self.maxltgt-1), 1.0) #initially all pairs are not aligned (divergent), do not consider <cls>, <sep>
             for b in range(bs):
-                for (s, t) in self.a[b]:
+                for (s, t) in self.link[b]:
                     self.ali[b,s,t] = -1.0 #is aligned
         #convert self.sidx/self.tidx/self.ali into np array
         self.sidx = np.array(self.sidx)
         if len(self.tidx) > 0:
             self.tidx = np.array(self.tidx)
-        if len(self.a) > 0:
+        if len(self.link) > 0:
             self.ali = np.array(self.ali)
 
         self.is_uneven = [False] * len(self.indexs)
@@ -211,7 +210,7 @@ class batch():
                     self.ltgt[b] = self.ltgt[b-1]
                     self.tidx[b] = self.tidx[b-1]
                     self.tgt[b] = self.tgt[b-1]
-                    self.a[b] = [] 
+                    self.link[b] = [] 
                     self.ali[b,:,:] = 1.0 ### all pairs unaligned
 
 
