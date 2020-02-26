@@ -219,11 +219,11 @@ class Trainer():
                 if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
                     h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
                     if self.step_ali['w'] > 0.0: ### (ALI)
-                        batch_loss_ali = self.computeloss_ali(h_xy, matrix, mask_xy)
+                        batch_loss_ali = self.computeloss_ali(h_xy, matrix, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
                         loss_ali = batch_loss_ali / npred_ali
                         loss += self.step_ali['w'] * loss_ali
                     if self.step_cos['w'] > 0.0: ### (COS)
-                        batch_loss_cos = self.computeloss_cos(h_xy, uneven, mask_xy)
+                        batch_loss_cos = self.computeloss_cos(h_xy, uneven, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
                         loss_cos = batch_loss_cos / npred_cos
                         loss += self.step_cos['w'] * loss_cos
                 ds.add_batch(loss,loss_mlm,loss_ali,loss_cos)
