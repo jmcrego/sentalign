@@ -295,7 +295,7 @@ class Dataset():
             if fsrc.endswith('.gz'): 
                 ls = ls.decode('utf8')
             if ftgt.endswith('.gz'): 
-                lt = lb.decode('utf8')
+                lt = lt.decode('utf8')
             if fali.endswith('.gz'): 
                 la = la.decode('utf8')
             ssnt = self.tokenize(ls)
