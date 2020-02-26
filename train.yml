@@ -22,7 +22,7 @@ valid:
 max_length: 8
 batch_size: [32, 32]
 swap_bitext: 0.5
-uneven_bitext: 0.1
+uneven_bitext: 0.05
 steps: 
   mlm:  { w: 0.5, p_mask: 0.15, r_same: 0.1, r_rand: 0.1 }
   ali:  { w: 5.0, align_scale: 0.001 } 
