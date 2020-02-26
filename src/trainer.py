@@ -118,12 +118,14 @@ class Trainer():
         self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True)
         for (fs,ft,fa) in opts.train['train']:
             self.data_train.add3files(fs,ft,fa)
+        logging.info('build Train batches')
         self.data_train.build_batches(self.batch_size[0],self.swap_bitext,self.uneven_bitext)
 
         logging.info('read Valid data')
         self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False)
         for (fs,ft,fa) in opts.train['valid']:
             self.data_valid.add3files(fs,ft,fa)
+        logging.info('build Valid batches')
         self.data_valid.build_batches(self.batch_size[1],self.swap_bitext,self.uneven_bitext)
 
 
