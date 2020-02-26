@@ -292,9 +292,12 @@ class Dataset():
         nsent = 0
         nfilt = 0
         for ls, lt, la in zip(fs,ft,fa):
-            print(ls)
-            print(lt)
-            print(la)
+            if fsrc.endswith('.gz'): 
+                ls = ls.decode('utf8')
+            if ftgt.endswith('.gz'): 
+                lt = lb.decode('utf8')
+            if fali.endswith('.gz'): 
+                la = la.decode('utf8')
             ssnt = self.tokenize(ls)
             sidx = self.tok2idx(ssnt)
             tsnt = self.tokenize(lt)
