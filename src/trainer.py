@@ -52,7 +52,7 @@ class stats():
         loss_mlm_avg = self.sum_loss_mlm/self.n_steps
         loss_ali_avg = self.sum_loss_ali/self.n_steps
         loss_cos_avg = self.sum_loss_cos/self.n_steps
-        logging.info("{} n_steps: {} ({} steps/sec) Loss: {:.4f} (mlm:{:.4f}, ali:{:.4f}, cos:{:.4f})".format(trn_val_tst, n_steps, self.n_steps/(time.time()-self.start), loss_avg, loss_mlm_avg, loss_ali_avg, loss_cos_avg))
+        logging.info("{} n_steps: {} ({:.2f} steps/sec) Loss: {:.4f} (mlm:{:.4f}, ali:{:.4f}, cos:{:.4f})".format(trn_val_tst, n_steps, self.n_steps/(time.time()-self.start), loss_avg, loss_mlm_avg, loss_ali_avg, loss_cos_avg))
         #logging.info('{}'.format(torch.cuda.memory_summary(device=device, abbreviated=False)))
         self.n_steps = 0
         self.sum_loss = 0.0
@@ -202,7 +202,7 @@ class Trainer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_valid:
-                xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos = self.format_batch(batch, self.step_mlm, self.step_ali) 
+                xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
                 loss = 0.0
                 loss_mlm = 0.0
                 loss_ali = 0.0
