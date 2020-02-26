@@ -142,7 +142,7 @@ class batch():
             (sidx, tidx, ali) = idx
         elif len(idx) == 2:
             (sidx, tidx) = idx
-            ali = []
+            ali = [] * len(sidx)
         (src, tgt) = snt
 
         if len(tidx) > 1 and random.random() < self.p_swap:
