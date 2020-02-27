@@ -138,7 +138,7 @@ class ComputeLossALI:
         #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
         #mask_s [bs,ls]
         #mask_t [bs,lt]
-        s, t, hs, ht = sentence_embedding(h_st, st_mask, ls, self.pooling)
+        s, t, hs, ht = sentence_embedding(h_st, st_mask, ls) ### pooling is not used
         hs = F.normalize(hs,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * 1.0 #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
@@ -168,7 +168,7 @@ class ComputeLossCOS:
         return loss
 
 
-def sentence_embedding(h_st, st_mask, ls, pooling):
+def sentence_embedding(h_st, st_mask, ls, pooling='mean'):
     hs = h_st[:,1:ls+1,:] #[bs, ls, es]
     ht = h_st[:,ls+2:,:] #[bs, lt, es]
     if pooling == 'cls':
