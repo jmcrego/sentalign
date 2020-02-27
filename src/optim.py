@@ -3,6 +3,7 @@ import logging
 import sys
 from torch import nn
 from torch.autograd import Variable
+from torch.nn import functional as F
 
 class NoamOpt:
     def __init__(self, model_size, factor, warmup, optimizer):
@@ -107,7 +108,7 @@ class Cosine(nn.Module):
         #i use -y since y is: 1.0 (divergent) or -1.0 (parallel)
         #and i need: 1.0 (cosine of same vectors) or -1.0 (cosine of distant vectors)
 #        return self.criterion(s, t, -y) #total loss of this batch (not normalized)        
-        return torch.sum(torch.abs(y - F.cosine_similarity(s,t)))
+        return torch.sum(torch.pow(y - F.cosine_similarity(s,t), 2))
 
 ##################################################################
 ### Compute losses ###############################################
