@@ -219,11 +219,18 @@ class Trainer():
         return True, loss, loss_mlm, loss_ali, loss_cos
 
 
-    def format_batch(self, batch, step_mlm, step_ali, step_cos):
+    def format_batch(self, batch, step_mlm=None, step_ali=None, step_cos=None):
         xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
         #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
         mask_xy = torch.as_tensor((xy != self.vocab.idx_pad))
         #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
+
+        if len(batch.aidx) == 0: ### inference mode
+            if self.cuda:
+                xy = xy.cuda()
+                mask_xy = mask_xy.cuda()
+            return xy, mask_xy
+
         if step_mlm['w'] > 0.0:
             p_mask = step_mlm['p_mask']
             r_same = step_mlm['r_same']
