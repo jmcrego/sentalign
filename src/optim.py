@@ -88,10 +88,10 @@ class Align(nn.Module):
         ### considering DP_st * y:
         # different sign (success)
         # same sign (mistake)
-        error = torch.log(1.0 + torch.exp(DP_st * y))
+        error = torch.log(1.0 + torch.exp(DP_st * y)) #[bs,ls,lt]
         mask_s = mask_s.unsqueeze(-1) #[bs, ls, 1]
         mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
-        batch_error = torch.sum(error * mask_s * mask_t) ### discard error of padded words (total loss of this batch)
+        batch_error = torch.sum(error * mask_s * mask_t) ### discard errors of padded words (total loss of this batch)
         return batch_error #not normalized
 #        error = torch.log(1.0 + torch.exp(DP_st * y))
 #        mask = ((DP_st>0.0) | (y<0.0)) & (mask_s & mask_t) #predicted_or_aligned_and_notmasked
@@ -116,7 +116,7 @@ class Cosine(nn.Module):
 #v3
         #input is DP [bs], y [bs]
         error = torch.log(1.0 + torch.exp(DP*y))
-        batch_error = torch.sum(error)
+        batch_error = torch.sum(error) #total loss of this batch
         return batch_error #not normalized
 
 ##################################################################
