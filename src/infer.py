@@ -102,7 +102,7 @@ class Infer():
                 print('s',s.shape)
                 print('t',t.shape)
 #                sim = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
-                DP = torch.bmm(s, t)
+                DP = torch.bmm(s, t).squeeze(0).squeeze(0)
                 print('DP',DP.shape)
                 ### output
                 if self.matrix:
