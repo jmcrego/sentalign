@@ -135,18 +135,19 @@ class Trainer():
         ts = stats()
         for batch in self.data_train:
             self.model.train()
-            st, st_mlm, st_mlm_ref, st_mask, matrix, uneven = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
+            st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
             #st         [bs, ls+lt] contains the original words after concat(x,y)                       [input for ALI]
-            #matrix     [bs, ls, lt] the alignment between src/tgt (<cls>/<sep> not included)           [reference for ALI]
+            #st_matrix  [bs, ls, lt] the alignment between src/tgt (<cls>/<sep> not included)           [reference for ALI]
             #st_mlm     [bs, ls+lt] contains the original words concat(x,y), some masked                [input for MLM]
             #st_mlm_ref [bs, ls+lt] contains the original value of masked words; <pad> for the rest     [reference for MLM]
             #st_mask    [bs, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included) [mask in MLM and ALI forward step]
-            #uneven     [bs] 1.0 if uneven, -1.0 if parallel
+            #st_uneven  [bs] 1.0 if uneven, -1.0 if parallel
             loss = 0.0
             loss_mlm = 0.0
             loss_ali = 0.0
             loss_cos = 0.0
             if self.step_mlm['w'] > 0.0: ### (MLM)
+                #st_mlm, st_mlm_ref, st_mask
                 npred_mlm = (st_mlm_ref != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
                 if npred_mlm == 0: 
                     logging.info('batch with no masked token to predict')
@@ -157,15 +158,18 @@ class Trainer():
                 loss += self.step_mlm['w'] * loss_mlm
 
             if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
+                #st, st_mask
                 h_st = self.model.forward(st, st_mask.unsqueeze(-2))
                 if self.step_ali['w'] > 0.0: ### (ALI)
+                    #st_matrix
                     npred_ali = np.dot(batch.lsrc,batch.ltgt)
-                    batch_loss_ali = self.computeloss_ali(h_st, matrix, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
+                    batch_loss_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
                     loss_ali = batch_loss_ali / npred_ali
                     loss += self.step_ali['w'] * loss_ali
                 if self.step_cos['w'] > 0.0: ### (COS)
+                    #st_uneven
                     npred_cos = h_st.shape[0]
-                    batch_loss_cos = self.computeloss_cos(h_st, uneven, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
+                    batch_loss_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
                     loss_cos = batch_loss_cos / npred_ali
                     loss += self.step_cos['w'] * loss_cos
             ts.add_batch(loss,loss_mlm,loss_ali,loss_cos)
@@ -204,7 +208,7 @@ class Trainer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_valid:
-                st, st_mlm, st_mlm_ref, st_mask, matrix, uneven = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
+                st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
                 loss = 0.0
                 loss_mlm = 0.0
                 loss_ali = 0.0
@@ -223,16 +227,18 @@ class Trainer():
                     h_st = self.model.forward(st, st_mask.unsqueeze(-2))
                     if self.step_ali['w'] > 0.0: ### (ALI)
                         npred_ali = np.dot(batch.lsrc,batch.ltgt)
-                        batch_loss_ali = self.computeloss_ali(h_st, matrix, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
+                        batch_loss_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
                         loss_ali = batch_loss_ali / npred_ali
                         loss += self.step_ali['w'] * loss_ali
                     if self.step_cos['w'] > 0.0: ### (COS)
                         npred_cos = h_st.shape[0]
-                        batch_loss_cos = self.computeloss_cos(h_st, uneven, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
+                        batch_loss_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
                         loss_cos = batch_loss_cos / npred_cos
                         loss += self.step_cos['w'] * loss_cos
                 vs.add_batch(loss,loss_mlm,loss_ali,loss_cos)
             vs.report(self.n_steps_so_far,'[Valid]',self.cuda)
+
+
 
     def format_batch(self, batch, step_mlm, step_ali, step_cos):
         xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))

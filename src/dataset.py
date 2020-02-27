@@ -313,7 +313,6 @@ class Dataset():
             ntoks_tgt += len(tidx)
             self.idx.append([sidx,tidx,alig])
             self.snt.append([ssnt,tsnt])
-
 #            if nsent > 10000: #### jmcrego
 #                break
 

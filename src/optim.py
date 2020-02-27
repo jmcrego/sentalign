@@ -92,7 +92,6 @@ class Align(nn.Module):
         mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
         batch_error = torch.sum(error * mask_s * mask_t) ### discard error of padded words (total loss of this batch)
         return batch_error #not normalized
-
 #        error = torch.log(1.0 + torch.exp(S_st * y))
 #        mask = ((S_st>0.0) | (y<0.0)) & (mask_s & mask_t) #predicted_or_aligned_and_notmasked
 #        batch_error = torch.sum(error * mask) #compute errors for predicted_or_aligned_and_notmasked
@@ -101,14 +100,14 @@ class Align(nn.Module):
 class Cosine(nn.Module):
     def __init__(self,margin=0.0):
         super(Cosine, self).__init__()
-        self.criterion = nn.CosineEmbeddingLoss(margin=margin, size_average=None, reduce=None, reduction='sum')
+#        self.criterion = nn.CosineEmbeddingLoss(margin=margin, size_average=None, reduce=None, reduction='sum')
         logging.debug('built criterion (cosine)')
 
     def forward(self, s, t, y):
         #i use -y since y is: 1.0 (divergent) or -1.0 (parallel)
         #and i need: 1.0 (cosine of same vectors) or -1.0 (cosine of distant vectors)
-        return self.criterion(s, t, -y) #total loss of this batch (not normalized)        
-
+#        return self.criterion(s, t, -y) #total loss of this batch (not normalized)        
+        return torch.sum(torch.abs(y - F.cosine_similarity(s,t)))
 
 ##################################################################
 ### Compute losses ###############################################
@@ -143,7 +142,7 @@ class ComputeLossALI:
         ht = h_st[:,ls+2:,:]
         mask_s = mask_st[:,1:ls+1].type(torch.float64)
         mask_t = mask_st[:,ls+2:,].type(torch.float64)
-        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]
+        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]        
         if torch.isnan(S_st).any():
             logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
         loss = self.criterion(S_st,y,mask_s,mask_t)
@@ -157,10 +156,9 @@ class ComputeLossCOS:
 
     def __call__(self, h_st, y, ls, lt, mask_st): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
-        #ls, lt is length of src/tgt tokens (without <cls>/<sep>)
+        #ls, lt [bs] length of src/tgt tokens (without <cls>/<sep>)
         #y [bs] uneven
-        #mask_s [bs,ls]
-        #mask_t [bs,lt]
+        #mask_st [bs,ls+lt+2]
         hs = h_st[:,1:ls+1,:] #[bs, ls, es]
         ht = h_st[:,ls+2:,:] #[bs, lt, es] 
         mask_s = mask_st[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
@@ -173,10 +171,10 @@ class ComputeLossCOS:
             s = torch.sum(hs*mask_s, dim=1) / torch.sum(mask_s, dim=1)
             t = torch.sum(ht*mask_t, dim=1) / torch.sum(mask_t, dim=1)
         elif self.pooling == 'cls':
-            s = h_st[:, 0, :] # take embedding of <cls>
-            t = h_st[:,ls+1,:] # take embedding of <sep>
+            s = h_st[:, 0, :]  # embedding of <cls>
+            t = h_st[:,ls+1,:] # embedding of <sep>
         else:
-            logging.error('bad pooling method: {}'.format(self.pooling))
+            logging.error('bad pooling method {} try: max|cls|mean'.format(self.pooling))
 
         loss = self.criterion(s, t, y) #no notrmalized
         return loss
