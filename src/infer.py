@@ -74,7 +74,7 @@ class Infer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_test:
-                xy, mask_xy = format_batch(batch)
+                xy, mask_xy = format_batch(self.vocab, self.cuda, batch)
 #                xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1)) #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]                
 #                mask_xy = torch.as_tensor((xy != self.vocab.idx_pad)) #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
 #                if self.cuda:

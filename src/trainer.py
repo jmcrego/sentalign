@@ -179,7 +179,7 @@ class Trainer():
 
 
     def get_loss(self,batch):
-        st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
+        st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch, self.step_mlm, self.step_ali, self.step_cos) 
         #st         [bs, ls+lt] contains the original words after concat(x,y)                       [input for ALI]
         #st_matrix  [bs, ls, lt] the alignment between src/tgt (<cls>/<sep> not included)           [reference for ALI]
         #st_mlm     [bs, ls+lt] contains the original words concat(x,y), some masked                [input for MLM]
@@ -217,71 +217,6 @@ class Trainer():
                 loss_cos = batch_loss_cos / npred_cos
                 loss += self.step_cos['w'] * loss_cos
         return True, loss, loss_mlm, loss_ali, loss_cos
-
-
-    def format_batch(self, batch, step_mlm=None, step_ali=None, step_cos=None):
-        xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
-        #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
-        mask_xy = torch.as_tensor((xy != self.vocab.idx_pad))
-        #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
-
-        if len(batch.aidx) == 0: ### inference mode
-            if self.cuda:
-                xy = xy.cuda()
-                mask_xy = mask_xy.cuda()
-            return xy, mask_xy
-
-        if step_mlm['w'] > 0.0:
-            p_mask = step_mlm['p_mask']
-            r_same = step_mlm['r_same']
-            r_rand = step_mlm['r_rand']
-
-            xy_mask = torch.ones_like(xy, dtype=torch.int64) * xy 
-            #xy_mask [batch_size, maxlsrc+maxltgt] contains the original words concat(x,y), some will be masked            [input for MLM]
-            xy_refs = torch.ones_like(xy, dtype=torch.int64) * self.vocab.idx_pad 
-            #xy_refs [batch_size, maxlsrc+maxltgt] contains the original value of masked words; <pad> for the rest         [reference for MLM]
-            for i in range(xy.shape[0]):
-                for j in range(xy.shape[1]):
-                    if not self.vocab.is_reserved(xy[i,j]):
-                        r = random.random()          # float in range [0.0, 1,0)
-                        if r < p_mask:               ### masked token that will be predicted
-                            xy_refs[i,j] = xy[i,j]   # save the original value to be used as reference
-                            q = random.random()      # float in range [0.0, 1,0)
-                            if q < r_same:           ### same
-                                pass
-                            elif q < r_same+r_rand:  ### random (among all vocab words in range [7, |vocab|])
-                                xy_mask[i,j] = random.randint(7,len(self.vocab)-1)
-                            else:                    # <msk>
-                                xy_mask[i,j] = self.vocab.idx_msk
-        else:
-            xy_mask = []
-            xy_refs = []
-
-
-        if step_ali['w'] > 0.0:
-            matrix = torch.as_tensor(batch.ali)
-            #matrix  [bs,ls,lt] the alignment between src/tgt [reference for ALI]
-        else:
-            matrix = []
-
-        if step_cos['w'] > 0.0:
-            uneven = (torch.as_tensor(batch.is_uneven,dtype=torch.float64) * 2.0) - 1.0 #-1.0 parallel; 1.0 uneven
-            #uneven  [bs]
-        else:
-            uneven = []
-
-        if self.cuda:
-            xy = xy.cuda()
-            mask_xy = mask_xy.cuda()
-            if step_mlm['w'] > 0.0:
-                xy_mask = xy_mask.cuda()
-                xy_refs = xy_refs.cuda()
-            if step_ali['w'] > 0.0:
-                matrix = matrix.cuda()
-            if step_cos['w'] > 0.0:
-                uneven = uneven.cuda()
-
-        return xy, xy_mask, xy_refs, mask_xy, matrix, uneven
 
 
     def load_checkpoint(self):
@@ -341,6 +276,69 @@ class Trainer():
         logging.info('averaged {} models into {}'.format(len(files), fout))
 
 
+def format_batch(self, vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None):
+    xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
+    #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
+    mask_xy = torch.as_tensor((xy != idx_pad))
+    #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
+
+    if len(batch.aidx) == 0: ### inference mode
+        if cuda:
+            xy = xy.cuda()
+            mask_xy = mask_xy.cuda()
+        return xy, mask_xy
+
+    if step_mlm['w'] > 0.0:
+        p_mask = step_mlm['p_mask']
+        r_same = step_mlm['r_same']
+        r_rand = step_mlm['r_rand']
+
+        xy_mask = torch.ones_like(xy, dtype=torch.int64) * xy 
+        #xy_mask [batch_size, maxlsrc+maxltgt] contains the original words concat(x,y), some will be masked            [input for MLM]
+        xy_refs = torch.ones_like(xy, dtype=torch.int64) * vocab.idx_pad 
+        #xy_refs [batch_size, maxlsrc+maxltgt] contains the original value of masked words; <pad> for the rest         [reference for MLM]
+        for i in range(xy.shape[0]):
+            for j in range(xy.shape[1]):
+                if not vocab.is_reserved(xy[i,j]):
+                    r = random.random()          # float in range [0.0, 1,0)
+                    if r < p_mask:               ### masked token that will be predicted
+                        xy_refs[i,j] = xy[i,j]   # save the original value to be used as reference
+                        q = random.random()      # float in range [0.0, 1,0)
+                        if q < r_same:           ### same
+                            pass
+                        elif q < r_same+r_rand:  ### random (among all vocab words in range [7, |vocab|])
+                            xy_mask[i,j] = random.randint(7,len(vocab)-1)
+                        else:                    # <msk>
+                            xy_mask[i,j] = vocab.idx_msk
+    else:
+        xy_mask = []
+        xy_refs = []
+
+
+    if step_ali['w'] > 0.0:
+        matrix = torch.as_tensor(batch.ali)
+        #matrix  [bs,ls,lt] the alignment between src/tgt [reference for ALI]
+    else:
+        matrix = []
+
+    if step_cos['w'] > 0.0:
+        uneven = (torch.as_tensor(batch.is_uneven,dtype=torch.float64) * 2.0) - 1.0 #-1.0 parallel; 1.0 uneven
+            #uneven  [bs]
+    else:
+        uneven = []
+
+    if cuda:
+        xy = xy.cuda()
+        mask_xy = mask_xy.cuda()
+        if step_mlm['w'] > 0.0:
+            xy_mask = xy_mask.cuda()
+            xy_refs = xy_refs.cuda()
+        if step_ali['w'] > 0.0:
+            matrix = matrix.cuda()
+        if step_cos['w'] > 0.0:
+            uneven = uneven.cuda()
+
+    return xy, xy_mask, xy_refs, mask_xy, matrix, uneven
 
 
 
