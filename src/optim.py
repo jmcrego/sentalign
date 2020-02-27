@@ -84,17 +84,17 @@ class Align(nn.Module):
         super(Align, self).__init__()
         logging.debug('built criterion (align)')
         
-    def forward(self, S_st, y, mask_s, mask_t):
-        ### considering S_st * y:
+    def forward(self, DP_st, y, mask_s, mask_t):
+        ### considering DP_st * y:
         # different sign (success)
         # same sign (mistake)
-        error = torch.log(1.0 + torch.exp(S_st * y))
+        error = torch.log(1.0 + torch.exp(DP_st * y))
         mask_s = mask_s.unsqueeze(-1) #[bs, ls, 1]
         mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
         batch_error = torch.sum(error * mask_s * mask_t) ### discard error of padded words (total loss of this batch)
         return batch_error #not normalized
-#        error = torch.log(1.0 + torch.exp(S_st * y))
-#        mask = ((S_st>0.0) | (y<0.0)) & (mask_s & mask_t) #predicted_or_aligned_and_notmasked
+#        error = torch.log(1.0 + torch.exp(DP_st * y))
+#        mask = ((DP_st>0.0) | (y<0.0)) & (mask_s & mask_t) #predicted_or_aligned_and_notmasked
 #        batch_error = torch.sum(error * mask) #compute errors for predicted_or_aligned_and_notmasked
 
 
@@ -104,7 +104,7 @@ class Cosine(nn.Module):
 #        self.criterion = nn.CosineEmbeddingLoss(margin=margin, size_average=None, reduce=None, reduction='sum')
         logging.debug('built criterion (cosine)')
 
-    def forward(self, cos, y):
+    def forward(self, DP, y):
         #input is s, t, y
         #i use -y since y is: 1.0 (divergent) or -1.0 (parallel)
         #and i need: 1.0 (cosine of same vectors) or -1.0 (cosine of distant vectors)
@@ -114,9 +114,10 @@ class Cosine(nn.Module):
 #        cos = F.cosine_similarity(s,t)
 #        return torch.sum(torch.pow(y - sim, 2))
 #v3
-        #input is cos [bs], y [bs]
-        error = torch.log(1.0 + torch.exp(cos*y))
-        return torch.sum(error) 
+        #input is DP [bs], y [bs]
+        error = torch.log(1.0 + torch.exp(DP*y))
+        batch_error = torch.sum(error)
+        return batch_error #not normalized
 
 ##################################################################
 ### Compute losses ###############################################
@@ -153,11 +154,11 @@ class ComputeLossALI:
         ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         mask_s = mask_st[:,1:ls+1].type(torch.float64)
         mask_t = mask_st[:,ls+2:,].type(torch.float64)
-        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
+        DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
 
-        if torch.isnan(S_st).any():
-            logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
-        loss = self.criterion(S_st,y,mask_s,mask_t)
+        if torch.isnan(DP_st).any():
+            logging.info('nan detected in alignment matrix (DP_st) ...try reducing align_scale')
+        loss = self.criterion(DP_st,y,mask_s,mask_t)
         return loss #sum of loss over batch
 
 class ComputeLossCOS:
@@ -190,10 +191,8 @@ class ComputeLossCOS:
 
         s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
         t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
-        cos = torch.bmm(s, torch.transpose(t, 2, 1)).squeeze() #[bs, 1] => [bs]
-        print(cos.shape)
-        sys.exit()
-        loss = self.criterion(cos, y) #sum of loss over batch
+        DP = torch.bmm(s, torch.transpose(t, 2, 1)).squeeze() #[bs, 1] => [bs]
+        loss = self.criterion(DP, y) #sum of loss over batch
         return loss
 
 
