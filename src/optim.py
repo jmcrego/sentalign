@@ -93,9 +93,9 @@ class Align(nn.Module):
         batch_error = torch.sum(error * mask_s * mask_t) ### discard error of padded words (total loss of this batch)
         return batch_error #not normalized
 
-#        predicted = torch.nonzero(S_st > 0.0)
-#        aligned = torch.nonzero(y < 0.0)
-#        predicted_and_aligned = predicted & aligned
+#        error = torch.log(1.0 + torch.exp(S_st * y))
+#        mask = ((S_st>0.0) | (y<0.0)) & (mask_s & mask_t) #predicted_or_aligned_and_notmasked
+#        batch_error = torch.sum(error * mask) #compute errors for predicted_or_aligned_and_notmasked
 
 
 class Cosine(nn.Module):

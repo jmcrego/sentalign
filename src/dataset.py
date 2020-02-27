@@ -314,8 +314,8 @@ class Dataset():
             self.idx.append([sidx,tidx,alig])
             self.snt.append([ssnt,tsnt])
 
-#            if nsent > 10000:
-#                break
+            if nsent > 10000: #### jmcrego
+                break
 
         logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt,fali))
 

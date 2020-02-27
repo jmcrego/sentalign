@@ -135,22 +135,23 @@ class Trainer():
         ts = stats()
         for batch in self.data_train:
             self.model.train()
-            xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
-            #xy      [batch_size, ls+lt] contains the original words after concat(x,y)                          [input for ALI]
-            #matrix  [bs,ls,lt] the alignment between src/tgt (<cls>/<sep> not included)                        [reference for ALI]
-            #xy_mask [batch_size, ls+lt] contains the original words concat(x,y), some masked                   [input for MLM]
-            #xy_refs [batch_size, ls+lt] contains the original value of masked words; <pad> for the rest        [reference for MLM]
-            #mask_xy [batch_size, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included)    [mask in MLM and ALI forward step]
-            #uneven  [batch_size] 1.0 if uneven, -1.0 if parallel
+            xy, xy_mask, xy_refs, mask_xy, matrix, uneven = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
+            #xy      [bs, ls+lt] contains the original words after concat(x,y)                       [input for ALI]
+            #matrix  [bs, ls,lt] the alignment between src/tgt (<cls>/<sep> not included)            [reference for ALI]
+            #xy_mask [bs, ls+lt] contains the original words concat(x,y), some masked                [input for MLM]
+            #xy_refs [bs, ls+lt] contains the original value of masked words; <pad> for the rest     [reference for MLM]
+            #mask_xy [bs, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included) [mask in MLM and ALI forward step]
+            #uneven  [bs] 1.0 if uneven, -1.0 if parallel
             loss = 0.0
             loss_mlm = 0.0
             loss_ali = 0.0
             loss_cos = 0.0
             if self.step_mlm['w'] > 0.0: ### (MLM)
-                h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
+                npred_mlm = (xy_refs != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
                 if npred_mlm == 0: 
                     logging.info('batch with no masked token to predict')
                     continue
+                h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
                 batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                 loss_mlm = batch_loss_mlm / npred_mlm
                 loss += self.step_mlm['w'] * loss_mlm
@@ -158,17 +159,18 @@ class Trainer():
             if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
                 h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
                 if self.step_ali['w'] > 0.0: ### (ALI)
+                    npred_ali = np.dot(batch.lsrc,batch.ltgt)
                     batch_loss_ali = self.computeloss_ali(h_xy, matrix, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
                     loss_ali = batch_loss_ali / npred_ali
                     loss += self.step_ali['w'] * loss_ali
                 if self.step_cos['w'] > 0.0: ### (COS)
+                    npred_cos = h_xy.shape[0]
                     batch_loss_cos = self.computeloss_cos(h_xy, uneven, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
                     loss_cos = batch_loss_cos / npred_ali
                     loss += self.step_cos['w'] * loss_cos
             ts.add_batch(loss,loss_mlm,loss_ali,loss_cos)
-
             ### gradient computation / model update
-            self.optimizer.zero_grad() 
+            self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
@@ -198,20 +200,21 @@ class Trainer():
         logging.info('End train')
 
     def validation(self):
-        ds = stats()
+        vs = stats()
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_valid:
-                xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
+                xy, xy_mask, xy_refs, mask_xy, matrix, uneven = self.format_batch(batch, self.step_mlm, self.step_ali, self.step_cos) 
                 loss = 0.0
                 loss_mlm = 0.0
                 loss_ali = 0.0
                 loss_cos = 0.0
                 if self.step_mlm['w'] > 0.0: ### (MLM)
-                    h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
+                    npred_mlm = (xy_refs != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
                     if npred_mlm == 0: 
                         logging.info('batch with nothing to predict')
                         continue
+                    h_xy = self.model.forward(xy_mask, mask_xy.unsqueeze(-2))
                     batch_loss_mlm = self.computeloss_mlm(h_xy, xy_refs)
                     loss_mlm = batch_loss_mlm / npred_mlm
                     loss += self.step_mlm['w'] * loss_mlm
@@ -219,41 +222,37 @@ class Trainer():
                 if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
                     h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
                     if self.step_ali['w'] > 0.0: ### (ALI)
+                        npred_ali = np.dot(batch.lsrc,batch.ltgt)
                         batch_loss_ali = self.computeloss_ali(h_xy, matrix, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
                         loss_ali = batch_loss_ali / npred_ali
                         loss += self.step_ali['w'] * loss_ali
                     if self.step_cos['w'] > 0.0: ### (COS)
+                        npred_cos = h_xy.shape[0]
                         batch_loss_cos = self.computeloss_cos(h_xy, uneven, batch.maxlsrc-1, batch.maxltgt-1, mask_xy)
                         loss_cos = batch_loss_cos / npred_cos
                         loss += self.step_cos['w'] * loss_cos
-                ds.add_batch(loss,loss_mlm,loss_ali,loss_cos)
-
-            ds.report(self.n_steps_so_far,'[Valid]',self.cuda)
+                vs.add_batch(loss,loss_mlm,loss_ali,loss_cos)
+            vs.report(self.n_steps_so_far,'[Valid]',self.cuda)
 
     def format_batch(self, batch, step_mlm, step_ali, step_cos):
         xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
         #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
         mask_xy = torch.as_tensor((xy != self.vocab.idx_pad))
         #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
-        npred_mlm = 0
-        npred_ali = 0
-        npred_cos = 0
-
         if step_mlm['w'] > 0.0:
             p_mask = step_mlm['p_mask']
             r_same = step_mlm['r_same']
             r_rand = step_mlm['r_rand']
 
-            xy_mask = torch.ones_like(xy, dtype=torch.int64) * xy                 #[batch_size, max_len] contains the original words concat(x,y). some are masked
-            #xy_mask [batch_size, max_len] contains the original words concat(x,y), some will be masked            [input for MLM]
-            xy_refs = torch.ones_like(xy, dtype=torch.int64) * self.vocab.idx_pad #[batch_size, max_len] will contain the original value of masked words in xy <pad> for the rest
-            #xy_refs [batch_size, max_len] contains the original value of masked words; <pad> for the rest         [reference for MLM]
+            xy_mask = torch.ones_like(xy, dtype=torch.int64) * xy 
+            #xy_mask [batch_size, maxlsrc+maxltgt] contains the original words concat(x,y), some will be masked            [input for MLM]
+            xy_refs = torch.ones_like(xy, dtype=torch.int64) * self.vocab.idx_pad 
+            #xy_refs [batch_size, maxlsrc+maxltgt] contains the original value of masked words; <pad> for the rest         [reference for MLM]
             for i in range(xy.shape[0]):
                 for j in range(xy.shape[1]):
                     if not self.vocab.is_reserved(xy[i,j]):
                         r = random.random()          # float in range [0.0, 1,0)
                         if r < p_mask:               ### masked token that will be predicted
-                            npred_mlm += 1
                             xy_refs[i,j] = xy[i,j]   # save the original value to be used as reference
                             q = random.random()      # float in range [0.0, 1,0)
                             if q < r_same:           ### same
@@ -269,18 +268,18 @@ class Trainer():
 
         if step_ali['w'] > 0.0:
             matrix = torch.as_tensor(batch.ali)
-            npred_ali += matrix.numel()
             #matrix  [bs,ls,lt] the alignment between src/tgt [reference for ALI]
         else:
             matrix = []
 
         if step_cos['w'] > 0.0:
             uneven = (torch.as_tensor(batch.is_uneven,dtype=torch.float64) * 2.0) - 1.0 #-1.0 parallel; 1.0 uneven
-            npred_cos += uneven.numel()
             #uneven  [bs]
         else:
             uneven = []
 
+        print(batch.is_uneven)
+        print(uneven)
 
         if self.cuda:
             xy = xy.cuda()
@@ -293,7 +292,7 @@ class Trainer():
             if step_cos['w'] > 0.0:
                 uneven = uneven.cuda()
 
-        return xy, xy_mask, xy_refs, mask_xy, matrix, uneven, npred_mlm, npred_ali, npred_cos
+        return xy, xy_mask, xy_refs, mask_xy, matrix, uneven
 
 
     def load_checkpoint(self):
