@@ -27,7 +27,7 @@ class Argv():
    -infer     YAML : test config file (inference mode)
    -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default mean)
    -batch_size INT : batch size use on inference (default 32)
-   -scale    FLOAT : alignment matrix scale (default 0.001)
+   -scale    FLOAT : alignment matrix scale (default 1.0)
    -matrix         : show laignment matrix
 
  Average:
@@ -58,7 +58,7 @@ class Argv():
         self.pooling = 'mean'
         self.matrix = False
         self.batch_size = 32
-        self.align_scale = 0.001
+        self.align_scale = 1.0
         while len(argv):
             tok = argv.pop(0)
             if   (tok=="-config"   and len(argv)): self.fcfg = argv.pop(0)
