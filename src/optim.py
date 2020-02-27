@@ -87,16 +87,14 @@ class Align(nn.Module):
     def forward(self, DP_st, y, mask_s, mask_t):
         ### considering DP_st * y:
         # different sign (success)
-        # same sign (mistake)
-        error = torch.log(1.0 + torch.exp(DP_st * y)) #[bs,ls,lt]
+        # same sign (error)
+        error = torch.log(1.0 + torch.exp(DP_st*y)) #[bs,ls,lt]
         mask_s = mask_s.unsqueeze(-1) #[bs, ls, 1]
         mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
         batch_error = torch.sum(error * mask_s * mask_t) ### discard errors of padded words (total loss of this batch)
         return batch_error #not normalized
-#        error = torch.log(1.0 + torch.exp(DP_st * y))
 #        mask = ((DP_st>0.0) | (y<0.0)) & (mask_s & mask_t) #predicted_or_aligned_and_notmasked
 #        batch_error = torch.sum(error * mask) #compute errors for predicted_or_aligned_and_notmasked
-
 
 class Cosine(nn.Module):
     def __init__(self,margin=0.0):
@@ -105,16 +103,8 @@ class Cosine(nn.Module):
         logging.debug('built criterion (cosine)')
 
     def forward(self, DP, y):
-        #input is s, t, y
-        #i use -y since y is: 1.0 (divergent) or -1.0 (parallel)
-        #and i need: 1.0 (cosine of same vectors) or -1.0 (cosine of distant vectors)
-#v1        
-#        return self.criterion(s, t, -y) #total loss of this batch (not normalized)        
-#v2
-#        cos = F.cosine_similarity(s,t)
-#        return torch.sum(torch.pow(y - sim, 2))
-#v3
-        #input is DP [bs], y [bs]
+        #DP [bs]
+        #y [bs]
         error = torch.log(1.0 + torch.exp(DP*y))
         batch_error = torch.sum(error) #total loss of this batch
         return batch_error #not normalized
@@ -143,7 +133,7 @@ class ComputeLossALI:
         self.align_scale = step_ali['align_scale']
         self.opt = opt
 
-    def __call__(self, h_st, y, ls, lt, st_mask): 
+    def __call__(self, h_st, y, ls, st_mask): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
         #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
         #mask_s [bs,ls]
@@ -163,17 +153,17 @@ class ComputeLossCOS:
         self.pooling = step_cos['pooling']
         self.opt = opt
 
-    def __call__(self, h_st, y, ls, lt, st_mask): 
+    def __call__(self, h_st, y, ls, st_mask): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
-        #ls, lt [bs] length of src/tgt tokens (without <cls>/<sep>)
+        #ls [bs] length of src tokens (without <cls>)
         #y [bs] uneven 1.0 if uneven, -1.0 if parallel
         #st_mask [bs,ls+lt+2]
         s, t, hs, ht = sentence_embedding(h_st, st_mask, ls, self.pooling)
-        s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
-        t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es, 1]
+        s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, es] => [bs, 1, es]
+        t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es] => [bs, es, 1]
         DP = torch.bmm(s, t).squeeze(1) #[bs, 1] => [bs]
         if torch.isnan(DP).any():
-            logging.info('nan detected in alignment matrix (DP)')
+            logging.info('nan detected in unevent vector (DP)')
         loss = self.criterion(DP, y) #sum of loss over batch
         return loss
 

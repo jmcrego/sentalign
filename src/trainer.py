@@ -207,13 +207,13 @@ class Trainer():
             if self.step_ali['w'] > 0.0: ### (ALI)
                 #st_matrix
                 npred_ali = np.dot(batch.lsrc,batch.ltgt)
-                batch_loss_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
+                batch_loss_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, st_mask)
                 loss_ali = batch_loss_ali / npred_ali
                 loss += self.step_ali['w'] * loss_ali
             if self.step_cos['w'] > 0.0: ### (COS)
                 #st_uneven 1.0 if uneven, -1.0 if parallel
                 npred_cos = h_st.shape[0]
-                batch_loss_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
+                batch_loss_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, st_mask)
                 loss_cos = batch_loss_cos / npred_cos
                 loss += self.step_cos['w'] * loss_cos
         return True, loss, loss_mlm, loss_ali, loss_cos
