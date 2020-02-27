@@ -101,6 +101,8 @@ class Infer():
                 t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es, 1]
 #                sim = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
                 DP = torch.bmm(s, t).squeeze(-1) #[bs, 1, 1] => [bs, 1]
+                print('DP_st',DP_st.shape)
+                print('DP',DP.shape)
                 ### output
                 if self.matrix:
                     hs = F.normalize(hs,p=2,dim=2,eps=1e-12)
