@@ -280,15 +280,15 @@ def format_batch(vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None
     ### when steps are none means inference
     st = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
     #st [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
-    st_mask = torch.as_tensor((xy != vocab.idx_pad))
-    #st_mask [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
+    st_mask = torch.as_tensor((st != vocab.idx_pad))
+    #st_mask [batch_size, max_len] True for x or y words in st; false for <pad> (<cls>/<sep> included)
 
     if step_mlm is not None and step_mlm['w'] > 0.0:
         p_mask = step_mlm['p_mask']
         r_same = step_mlm['r_same']
         r_rand = step_mlm['r_rand']
 
-        st_mlm = torch.ones_like(st, dtype=torch.int64) * xy 
+        st_mlm = torch.ones_like(st, dtype=torch.int64) * st
         #st_mlm [batch_size, maxlsrc+maxltgt] contains the original words concat(x,y), some will be masked            [input for MLM]
         st_mlm_ref = torch.ones_like(st, dtype=torch.int64) * vocab.idx_pad 
         #st_mlm_ref [batch_size, maxlsrc+maxltgt] contains the original value of masked words; <pad> for the rest     [reference for MLM]
