@@ -107,8 +107,14 @@ class Cosine(nn.Module):
     def forward(self, s, t, y):
         #i use -y since y is: 1.0 (divergent) or -1.0 (parallel)
         #and i need: 1.0 (cosine of same vectors) or -1.0 (cosine of distant vectors)
+#v1        
 #        return self.criterion(s, t, -y) #total loss of this batch (not normalized)        
-        return torch.sum(torch.pow(y - F.cosine_similarity(s,t), 2))
+#v2
+#        cos = F.cosine_similarity(s,t)
+#        return torch.sum(torch.pow(y - sim, 2))
+#v3
+        error = torch.log(1.0 + torch.exp(torch.bmm(s,torch.transpose(t, 1, 0)) * y))
+        return torch.sum(error) 
 
 ##################################################################
 ### Compute losses ###############################################
@@ -125,7 +131,7 @@ class ComputeLossMLM:
         x_hat = x_hat.contiguous().view(-1, x_hat.size(-1)) #[bs*sl,V]
         y = y.contiguous().view(-1) #[bs*sl]
         loss = self.criterion(x_hat, y) 
-        return loss #not normalized
+        return loss #sum of loss over batch
 
 
 class ComputeLossALI:
@@ -140,9 +146,9 @@ class ComputeLossALI:
         #mask_s [bs,ls]
         #mask_t [bs,lt]
         hs = h_st[:,1:ls+1,:]
-        hs = F.normalize(hs,p=2,dim=2,eps=1e-12)
+        hs = F.normalize(hs,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         ht = h_st[:,ls+2:,:]
-        ht = F.normalize(ht,p=2,dim=2,eps=1e-12)
+        ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         mask_s = mask_st[:,1:ls+1].type(torch.float64)
         mask_t = mask_st[:,ls+2:,].type(torch.float64)
         S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
@@ -150,7 +156,7 @@ class ComputeLossALI:
         if torch.isnan(S_st).any():
             logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
         loss = self.criterion(S_st,y,mask_s,mask_t)
-        return loss #not normalized
+        return loss #sum of loss over batch
 
 class ComputeLossCOS:
     def __init__(self, criterion, step_cos, opt=None):
@@ -161,7 +167,7 @@ class ComputeLossCOS:
     def __call__(self, h_st, y, ls, lt, mask_st): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
         #ls, lt [bs] length of src/tgt tokens (without <cls>/<sep>)
-        #y [bs] uneven
+        #y [bs] uneven 1.0 if uneven, -1.0 if parallel
         #mask_st [bs,ls+lt+2]
         hs = h_st[:,1:ls+1,:] #[bs, ls, es]
         ht = h_st[:,ls+2:,:] #[bs, lt, es] 
@@ -180,7 +186,9 @@ class ComputeLossCOS:
         else:
             logging.error('bad pooling method {} try: max|cls|mean'.format(self.pooling))
 
-        loss = self.criterion(s, t, y) #no notrmalized
+        s = F.normalize(s,p=2,dim=1,eps=1e-12)
+        t = F.normalize(t,p=2,dim=1,eps=1e-12)
+        loss = self.criterion(s, t, y) #sum of loss over batch
         return loss
 
 

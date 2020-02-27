@@ -103,6 +103,8 @@ class Infer():
 
                 ### output
                 if self.matrix:
+                    hs = F.normalize(hs,p=2,dim=2,eps=1e-12)
+                    ht = F.normalize(ht,p=2,dim=2,eps=1e-12)
                     S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
 
                 for b in range(len(sim)):

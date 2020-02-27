@@ -211,7 +211,7 @@ class Trainer():
                 loss_ali = batch_loss_ali / npred_ali
                 loss += self.step_ali['w'] * loss_ali
             if self.step_cos['w'] > 0.0: ### (COS)
-                #st_uneven
+                #st_uneven 1.0 if uneven, -1.0 if parallel
                 npred_cos = h_st.shape[0]
                 batch_loss_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, batch.maxltgt-1, st_mask)
                 loss_cos = batch_loss_cos / npred_cos
