@@ -74,19 +74,19 @@ class Infer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_test:
-                xy, mask_xy = format_batch(self.vocab, self.cuda, batch)
+                st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch)
 #                xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1)) #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]                
 #                mask_xy = torch.as_tensor((xy != self.vocab.idx_pad)) #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
 #                if self.cuda:
 #                    xy = xy.cuda()
 #                    mask_xy = mask_xy.cuda()
-                h_xy = self.model.forward(xy, mask_xy.unsqueeze(-2))
+                h_st = self.model.forward(st, mask_st.unsqueeze(-2))
                 ls = batch.maxlsrc-1 ### maxlength of source sequence without <cls>
                 lt = batch.maxltgt-1 ### maxlength of target sequence without <sep>
-                hs = h_xy[:,1:ls+1,:] #[bs, ls, es]
-                ht = h_xy[:,ls+2:,:] #[bs, lt, es]
-                mask_s = mask_xy[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
-                mask_t = mask_xy[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
+                hs = h_st[:,1:ls+1,:] #[bs, ls, es]
+                ht = h_st[:,ls+2:,:] #[bs, lt, es]
+                mask_s = mask_st[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
+                mask_t = mask_st[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
                 if self.pooling == 'max':
                     s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                     t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
@@ -94,8 +94,8 @@ class Infer():
                     s = torch.sum(hs*mask_s, dim=1) / torch.sum(mask_s, dim=1)
                     t = torch.sum(ht*mask_t, dim=1) / torch.sum(mask_t, dim=1)
                 elif self.pooling == 'cls':
-                    s = h_xy[:, 0, :] # take embedding of <cls>
-                    t = h_xy[:,ls+1,:] # take embedding of <sep>
+                    s = h_st[:, 0, :] # take embedding of <cls>
+                    t = h_st[:,ls+1,:] # take embedding of <sep>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
                 s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
