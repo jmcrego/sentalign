@@ -277,7 +277,7 @@ class Trainer():
 
 
 def format_batch(vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None):
-    ### when steps are none means inference
+    ### when steps are None means inference
     st = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
     #st [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
     st_mask = torch.as_tensor((st != vocab.idx_pad))

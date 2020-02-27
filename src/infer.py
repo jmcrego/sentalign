@@ -80,19 +80,19 @@ class Infer():
 #                if self.cuda:
 #                    xy = xy.cuda()
 #                    mask_xy = mask_xy.cuda()
-                h_st = self.model.forward(st, mask_st.unsqueeze(-2))
+                h_st = self.model.forward(st, st_mask.unsqueeze(-2))
                 ls = batch.maxlsrc-1 ### maxlength of source sequence without <cls>
                 lt = batch.maxltgt-1 ### maxlength of target sequence without <sep>
                 hs = h_st[:,1:ls+1,:] #[bs, ls, es]
                 ht = h_st[:,ls+2:,:] #[bs, lt, es]
-                mask_s = mask_st[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
-                mask_t = mask_st[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
+                s_mask = st_mask[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
+                t_mask = st_mask[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
                 if self.pooling == 'max':
-                    s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
-                    t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
+                    s, _ = torch.max(hs*s_mask + (1.0-s_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
+                    t, _ = torch.max(ht*t_mask + (1.0-t_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
                 elif self.pooling == 'mean':
-                    s = torch.sum(hs*mask_s, dim=1) / torch.sum(mask_s, dim=1)
-                    t = torch.sum(ht*mask_t, dim=1) / torch.sum(mask_t, dim=1)
+                    s = torch.sum(hs*s_mask, dim=1) / torch.sum(s_mask, dim=1)
+                    t = torch.sum(ht*t_mask, dim=1) / torch.sum(t_mask, dim=1)
                 elif self.pooling == 'cls':
                     s = h_st[:, 0, :] # take embedding of <cls>
                     t = h_st[:,ls+1,:] # take embedding of <sep>
