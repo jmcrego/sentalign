@@ -141,7 +141,7 @@ class ComputeLossALI:
         s, t, hs, ht = sentence_embedding(h_st, st_mask, ls, self.pooling)
         hs = F.normalize(hs,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
-        DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
+        DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * 1.0 #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
             logging.info('nan detected in alignment matrix (DP_st)')
         loss = self.criterion(DP_st,y,mask_s,mask_t)
