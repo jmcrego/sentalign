@@ -314,7 +314,6 @@ class Dataset():
             self.idx.append([sidx,tidx,alig])
             self.snt.append([ssnt,tsnt])
 
-
             if nsent > 10000: #### jmcrego
                    break
 
