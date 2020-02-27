@@ -279,7 +279,7 @@ class Trainer():
 def format_batch(vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None):
     xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
     #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
-    mask_xy = torch.as_tensor((xy != idx_pad))
+    mask_xy = torch.as_tensor((xy != vocab.idx_pad))
     #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
 
     if len(batch.aidx) == 0: ### inference mode
