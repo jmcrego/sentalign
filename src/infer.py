@@ -97,31 +97,32 @@ class Infer():
                     t = h_xy[:,ls+1,:] # take embedding of <sep>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
-                s = F.normalize(s,p=2,dim=1,eps=1e-12)
-                t = F.normalize(t,p=2,dim=1,eps=1e-12)
-                sim = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
+                s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-1)
+                t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1)
+#                sim = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
+                DP = torch.bmm(s, torch.transpose(t, 2, 1)).squeeze()
 
                 ### output
                 if self.matrix:
                     hs = F.normalize(hs,p=2,dim=2,eps=1e-12)
                     ht = F.normalize(ht,p=2,dim=2,eps=1e-12)
-                    S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
+                    DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
 
-                for b in range(len(sim)):
+                for b in range(len(DP)):
                     if self.matrix:
-                        print_matrix(S_st[b], batch.src[b], batch.tgt[b], sim[b], batch.indexs[b])
+                        print_matrix(DP_st[b], batch.src[b], batch.tgt[b], DP[b], batch.indexs[b])
                     else:
-                        print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],sim[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
+                        print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
         logging.info('End testing')
 
-def print_matrix(S_st, src, tgt, sim, index):
+def print_matrix(DP_st, src, tgt, sim, index):
     align = []
     align.append(['{:.6f}'.format(sim)] + src) #mean pooling is added here
     for t in range(len(tgt)):
         row = []
         for s in range(len(src)):
-            row.append('{:.2f}'.format(S_st[s,t]))
+            row.append('{:.2f}'.format(DP_st[s,t]))
         align.append([tgt[t]] + row)
     #print(np.matrix(align))
     #s = [[str(e) for e in row] for row in align]
