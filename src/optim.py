@@ -185,7 +185,8 @@ def sentence_embedding(h_st, st_mask, ls, pooling='mean'):
             t = torch.sum(ht*t_mask, dim=1) / torch.sum(t_mask, dim=1)
         else:
             logging.error('bad pooling method: {}'.format(self.pooling))
-
+    s_mask = s_mask.squeeze(-1)
+    t_mask = t_mask.squeeze(-1)
     return s, t, hs, ht, s_mask, t_mask
 
 
