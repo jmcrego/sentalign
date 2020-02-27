@@ -104,7 +104,8 @@ class Cosine(nn.Module):
 #        self.criterion = nn.CosineEmbeddingLoss(margin=margin, size_average=None, reduce=None, reduction='sum')
         logging.debug('built criterion (cosine)')
 
-    def forward(self, s, t, y):
+    def forward(self, cos, y):
+        #input is s, t, y
         #i use -y since y is: 1.0 (divergent) or -1.0 (parallel)
         #and i need: 1.0 (cosine of same vectors) or -1.0 (cosine of distant vectors)
 #v1        
@@ -113,7 +114,8 @@ class Cosine(nn.Module):
 #        cos = F.cosine_similarity(s,t)
 #        return torch.sum(torch.pow(y - sim, 2))
 #v3
-        error = torch.log(1.0 + torch.exp(torch.bmm(s,torch.transpose(t, 1, 0)) * y))
+        #input is cos [bs], y [bs]
+        error = torch.log(1.0 + torch.exp(cos*y))
         return torch.sum(error) 
 
 ##################################################################
@@ -186,9 +188,10 @@ class ComputeLossCOS:
         else:
             logging.error('bad pooling method {} try: max|cls|mean'.format(self.pooling))
 
-        s = F.normalize(s,p=2,dim=1,eps=1e-12)
-        t = F.normalize(t,p=2,dim=1,eps=1e-12)
-        loss = self.criterion(s, t, y) #sum of loss over batch
+        s = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, 1, es]
+        t = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, 1, es]
+        cos = torch.bmm(s, torch.transpose(t, 2, 1)).squeeze() #[bs, 1] => [bs]
+        loss = self.criterion(cos, y) #sum of loss over batch
         return loss
 
 
