@@ -14,7 +14,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Variable
 from src.dataset import Vocab, Dataset, OpenNMTTokenizer, batch
-from src.trainer import sequence_mask, format_batch
+from src.trainer import sequence_mask, format_batch, sentence_embedding
 from src.model import make_model
 from src.optim import NoamOpt, LabelSmoothing, Align, Cosine, ComputeLossMLM, ComputeLossALI, ComputeLossCOS
 
@@ -75,46 +75,20 @@ class Infer():
             self.model.eval() ### avoids dropout
             for batch in self.data_test:
                 st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch)
-#                xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1)) #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]                
-#                mask_xy = torch.as_tensor((xy != self.vocab.idx_pad)) #mask_xy [batch_size, max_len] True for x or y words in xy; false for <pad> (<cls>/<sep> included)
-#                if self.cuda:
-#                    xy = xy.cuda()
-#                    mask_xy = mask_xy.cuda()
                 h_st = self.model.forward(st, st_mask.unsqueeze(-2))
-                ls = batch.maxlsrc-1 ### maxlength of source sequence without <cls>
-                lt = batch.maxltgt-1 ### maxlength of target sequence without <sep>
-                hs = h_st[:,1:ls+1,:] #[bs, ls, es]
-                ht = h_st[:,ls+2:,:] #[bs, lt, es]
-                s_mask = st_mask[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
-                t_mask = st_mask[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
-                if self.pooling == 'max':
-                    s, _ = torch.max(hs*s_mask + (1.0-s_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
-                    t, _ = torch.max(ht*t_mask + (1.0-t_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
-                elif self.pooling == 'mean':
-                    s = torch.sum(hs*s_mask, dim=1) / torch.sum(s_mask, dim=1)
-                    t = torch.sum(ht*t_mask, dim=1) / torch.sum(t_mask, dim=1)
-                elif self.pooling == 'cls':
-                    s = h_st[:, 0, :] # take embedding of <cls>
-                    t = h_st[:,ls+1,:] # take embedding of <sep>
-                else:
-                    logging.error('bad pooling method: {}'.format(self.pooling))
-
-                s2 = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, 1, es]
-                t2 = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, es, 1]
-                sim = F.cosine_similarity(s2, t2, dim=1, eps=1e-12).cpu().detach().numpy()
-                print('sim',sim)
-
+                s, t, hs, ht = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling)
+                #s = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, es]
+                #t = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, es]
+                #DP = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
                 s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
                 t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es, 1]
                 DP = torch.bmm(s, t).squeeze(-1).squeeze(-1).cpu().detach().numpy() #[bs, 1, 1] => [bs]
-                print('DP',DP)
-                sys.exit()
-                ### output
                 if self.matrix:
                     hs = F.normalize(hs,p=2,dim=2,eps=1e-12)
                     ht = F.normalize(ht,p=2,dim=2,eps=1e-12)
                     DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
 
+                ### output
                 for b in range(len(DP)):
                     if self.matrix:
                         print_matrix(DP_st[b], batch.src[b], batch.tgt[b], DP[b], batch.indexs[b])
@@ -122,6 +96,7 @@ class Infer():
                         print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
         logging.info('End testing')
+
 
 def print_matrix(DP_st, src, tgt, DP, index):
     align = []
