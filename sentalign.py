@@ -19,14 +19,19 @@ class Argv():
         self.usage = '''usage: {} -dir DIR [-learn YAML] [-infer YAML] [-pooling STRING] [-config YAML] [-seed INT] [-log FILE] [-loglevel LEVEL]
    -dir        DIR : checkpoint directory (must not exist when learning from scratch)
 
+ Learning:
    -learn     YAML : train config file (learning mode)
    -config    YAML : modeling/optim config file (needed when learning from scratch)
 
+ Inference:
    -infer     YAML : test config file (inference mode)
    -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default mean)
    -batch_size INT : batch size use on inference (default 32)
    -scale    FLOAT : alignment matrix scale (default 0.001)
    -matrix         : show laignment matrix
+
+ Average:
+   -average        : average models in DIR
 
    -seed       INT : seed value (default 12345)
    -log       FILE : log file (default stderr)
