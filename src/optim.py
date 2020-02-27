@@ -143,21 +143,17 @@ class ComputeLossALI:
         self.align_scale = step_ali['align_scale']
         self.opt = opt
 
-    def __call__(self, h_st, y, ls, lt, mask_st): 
+    def __call__(self, h_st, y, ls, lt, st_mask): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
         #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
         #mask_s [bs,ls]
         #mask_t [bs,lt]
-        hs = h_st[:,1:ls+1,:]
+        s, t, hs, ht = sentence_embedding(h_st, st_mask, ls, self.pooling)
         hs = F.normalize(hs,p=2,dim=2,eps=1e-12) #all embeddings are normalized
-        ht = h_st[:,ls+2:,:]
         ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
-        mask_s = mask_st[:,1:ls+1].type(torch.float64)
-        mask_t = mask_st[:,ls+2:,].type(torch.float64)
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
-
         if torch.isnan(DP_st).any():
-            logging.info('nan detected in alignment matrix (DP_st) ...try reducing align_scale')
+            logging.info('nan detected in alignment matrix (DP_st)')
         loss = self.criterion(DP_st,y,mask_s,mask_t)
         return loss #sum of loss over batch
 
@@ -167,33 +163,39 @@ class ComputeLossCOS:
         self.pooling = step_cos['pooling']
         self.opt = opt
 
-    def __call__(self, h_st, y, ls, lt, mask_st): 
+    def __call__(self, h_st, y, ls, lt, st_mask): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
         #ls, lt [bs] length of src/tgt tokens (without <cls>/<sep>)
         #y [bs] uneven 1.0 if uneven, -1.0 if parallel
-        #mask_st [bs,ls+lt+2]
-        hs = h_st[:,1:ls+1,:] #[bs, ls, es]
-        ht = h_st[:,ls+2:,:] #[bs, lt, es] 
-        mask_s = mask_st[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
-        mask_t = mask_st[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
-
-        if self.pooling == 'max':
-            s, _ = torch.max(hs*mask_s + (1.0-mask_s)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
-            t, _ = torch.max(ht*mask_t + (1.0-mask_t)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
-        elif self.pooling == 'mean':
-            s = torch.sum(hs*mask_s, dim=1) / torch.sum(mask_s, dim=1)
-            t = torch.sum(ht*mask_t, dim=1) / torch.sum(mask_t, dim=1)
-        elif self.pooling == 'cls':
-            s = h_st[:, 0, :]  # embedding of <cls>
-            t = h_st[:,ls+1,:] # embedding of <sep>
-        else:
-            logging.error('bad pooling method {} try: max|cls|mean'.format(self.pooling))
-
+        #st_mask [bs,ls+lt+2]
+        s, t, hs, ht = sentence_embedding(h_st, st_mask, ls, self.pooling)
         s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
         t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es, 1]
         DP = torch.bmm(s, t).squeeze(1) #[bs, 1] => [bs]
+        if torch.isnan(DP).any():
+            logging.info('nan detected in alignment matrix (DP)')
         loss = self.criterion(DP, y) #sum of loss over batch
         return loss
 
+
+def sentence_embedding(h_st, st_mask, ls, pooling):
+    hs = h_st[:,1:ls+1,:] #[bs, ls, es]
+    ht = h_st[:,ls+2:,:] #[bs, lt, es]
+    if pooling == 'cls':
+        s = h_st[:, 0, :] # take embedding of <cls>
+        t = h_st[:,ls+1,:] # take embedding of <sep>
+    else:
+        s_mask = st_mask[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
+        t_mask = st_mask[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
+        if pooling == 'max':
+            s, _ = torch.max(hs*s_mask + (1.0-s_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
+            t, _ = torch.max(ht*t_mask + (1.0-t_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
+        elif pooling == 'mean':
+            s = torch.sum(hs*s_mask, dim=1) / torch.sum(s_mask, dim=1)
+            t = torch.sum(ht*t_mask, dim=1) / torch.sum(t_mask, dim=1)
+        else:
+            logging.error('bad pooling method: {}'.format(self.pooling))
+
+    return s, t, hs, ht
 
 

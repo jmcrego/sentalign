@@ -14,9 +14,9 @@ from torch import nn
 from torch.nn import functional as F
 from torch.autograd import Variable
 from src.dataset import Vocab, Dataset, OpenNMTTokenizer, batch
-from src.trainer import sequence_mask, format_batch, sentence_embedding
+from src.trainer import sequence_mask, format_batch
 from src.model import make_model
-from src.optim import NoamOpt, LabelSmoothing, Align, Cosine, ComputeLossMLM, ComputeLossALI, ComputeLossCOS
+from src.optim import NoamOpt, LabelSmoothing, Align, Cosine, ComputeLossMLM, ComputeLossALI, ComputeLossCOS, sentence_embedding
 
 
 class Infer():
