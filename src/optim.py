@@ -138,13 +138,13 @@ class ComputeLossALI:
         #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
         #mask_s [bs,ls]
         #mask_t [bs,lt]
-        s, t, hs, ht = sentence_embedding(h_st, st_mask, ls) ### pooling is not used
+        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls) 
         hs = F.normalize(hs,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * 1.0 #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
             logging.info('nan detected in alignment matrix (DP_st)')
-        loss = self.criterion(DP_st,y,mask_s,mask_t)
+        loss = self.criterion(DP_st,y,s_mask,t_mask)
         return loss #sum of loss over batch
 
 class ComputeLossCOS:
@@ -158,7 +158,7 @@ class ComputeLossCOS:
         #ls [bs] length of src tokens (without <cls>)
         #y [bs] uneven 1.0 if uneven, -1.0 if parallel
         #st_mask [bs,ls+lt+2]
-        s, t, hs, ht = sentence_embedding(h_st, st_mask, ls, self.pooling)
+        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, self.pooling)
         s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, es] => [bs, 1, es]
         t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es] => [bs, es, 1]
         DP = torch.bmm(s, t).squeeze(1) #[bs, 1] => [bs]
@@ -171,12 +171,12 @@ class ComputeLossCOS:
 def sentence_embedding(h_st, st_mask, ls, pooling='mean'):
     hs = h_st[:,1:ls+1,:] #[bs, ls, es]
     ht = h_st[:,ls+2:,:] #[bs, lt, es]
+    s_mask = st_mask[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
+    t_mask = st_mask[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
     if pooling == 'cls':
         s = h_st[:, 0, :] # take embedding of <cls>
         t = h_st[:,ls+1,:] # take embedding of <sep>
     else:
-        s_mask = st_mask[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
-        t_mask = st_mask[:,ls+2:,].type(torch.float64).unsqueeze(-1) #[bs, lt, 1]
         if pooling == 'max':
             s, _ = torch.max(hs*s_mask + (1.0-s_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
             t, _ = torch.max(ht*t_mask + (1.0-t_mask)*-999.9, dim=1) #-999.9 should be -Inf but it produces an nan when multiplied by 0.0
@@ -186,6 +186,6 @@ def sentence_embedding(h_st, st_mask, ls, pooling='mean'):
         else:
             logging.error('bad pooling method: {}'.format(self.pooling))
 
-    return s, t, hs, ht
+    return s, t, hs, ht, s_mask, t_mask
 
 

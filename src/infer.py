@@ -76,7 +76,7 @@ class Infer():
             for batch in self.data_test:
                 st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch)
                 h_st = self.model.forward(st, st_mask.unsqueeze(-2))
-                s, t, hs, ht = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling)
+                s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling)
                 #s = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, es]
                 #t = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, es]
                 #DP = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
