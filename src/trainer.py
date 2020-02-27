@@ -276,7 +276,7 @@ class Trainer():
         logging.info('averaged {} models into {}'.format(len(files), fout))
 
 
-def format_batch(self, vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None):
+def format_batch(vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None):
     xy = torch.from_numpy(np.append(batch.sidx, batch.tidx, axis=1))
     #xy [batch_size, max_len] contains the original words after concat(x,y) [input for ALI]
     mask_xy = torch.as_tensor((xy != idx_pad))
