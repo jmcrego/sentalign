@@ -113,7 +113,3 @@ def print_matrix(DP_st, src, tgt, DP, index):
     table = [fmt.format(*row) for row in align]
     print(index)
     print('\n'.join(table))
-
-
-def norm(x,d):
-    return F.normalize(x,p=2,dim=d,eps=1e-12)
