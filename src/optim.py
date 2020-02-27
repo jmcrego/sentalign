@@ -188,12 +188,11 @@ class ComputeLossCOS:
         else:
             logging.error('bad pooling method {} try: max|cls|mean'.format(self.pooling))
 
-        s = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, 1, es]
-        t = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, 1, es]
-        print(s.shape)
-        print(t.shape)
-        sys.exit()
+        s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
+        t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
         cos = torch.bmm(s, torch.transpose(t, 2, 1)).squeeze() #[bs, 1] => [bs]
+        print(cos.shape)
+        sys.exit()
         loss = self.criterion(cos, y) #sum of loss over batch
         return loss
 
