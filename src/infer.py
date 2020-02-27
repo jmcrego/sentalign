@@ -98,10 +98,17 @@ class Infer():
                     t = h_st[:,ls+1,:] # take embedding of <sep>
                 else:
                     logging.error('bad pooling method: {}'.format(self.pooling))
+
+                s2 = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, 1, es]
+                t2 = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, es, 1]
+                sim = F.cosine_similarity(s2, t2, dim=1, eps=1e-12).cpu().detach().numpy()
+                print('sim',sim)
+
                 s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
                 t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es, 1]
-#                sim = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
                 DP = torch.bmm(s, t).squeeze(-1).squeeze(-1) #[bs, 1, 1] => [bs]
+                print('DP',DP)
+                sys.exit()
                 ### output
                 if self.matrix:
                     hs = F.normalize(hs,p=2,dim=2,eps=1e-12)
