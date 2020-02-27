@@ -190,6 +190,9 @@ class ComputeLossCOS:
 
         s = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, 1, es]
         t = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, 1, es]
+        print(s.shape)
+        print(t.shape)
+        sys.exit()
         cos = torch.bmm(s, torch.transpose(t, 2, 1)).squeeze() #[bs, 1] => [bs]
         loss = self.criterion(cos, y) #sum of loss over batch
         return loss
