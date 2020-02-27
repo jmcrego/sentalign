@@ -145,13 +145,11 @@ class ComputeLossALI:
         ht = F.normalize(ht,p=2,dim=2,eps=1e-12)
         mask_s = mask_st[:,1:ls+1].type(torch.float64)
         mask_t = mask_st[:,ls+2:,].type(torch.float64)
-        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]
-#        print(S_st[0])
+        S_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
 
         if torch.isnan(S_st).any():
             logging.info('nan detected in alignment matrix (S_st) ...try reducing align_scale')
         loss = self.criterion(S_st,y,mask_s,mask_t)
-#        print(loss)
         return loss #not normalized
 
 class ComputeLossCOS:
