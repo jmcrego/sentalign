@@ -116,9 +116,9 @@ class Infer():
 
         logging.info('End testing')
 
-def print_matrix(DP_st, src, tgt, sim, index):
+def print_matrix(DP_st, src, tgt, DP, index):
     align = []
-    align.append(['{:.6f}'.format(sim)] + src) #mean pooling is added here
+    align.append(['{:.6f}'.format(DP)] + src)
     for t in range(len(tgt)):
         row = []
         for s in range(len(src)):
