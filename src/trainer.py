@@ -157,7 +157,6 @@ class Trainer():
 
 
     def __call__(self):
-
         logging.info('Start train n_steps_so_far={}'.format(self.n_steps_so_far))
         ts = stats()
         for batch in self.data_train:
@@ -175,7 +174,6 @@ class Trainer():
             ### report
             ###
             if self.report_every_steps > 0 and self.n_steps_so_far % self.report_every_steps == 0:
-#                ts.report(self.n_steps_so_far,'[Train]',self.cuda)
                 ts.report(self.n_steps_so_far,'[Train]')
             ###
             ### save checkpoint
