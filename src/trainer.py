@@ -193,7 +193,7 @@ class Trainer():
                         ok, loss, loss_mlm, loss_ali, loss_cos = self.get_loss(batch,vs)
                         if not ok:
                             continue
-                    vs.report(self.n_steps_so_far,'[Valid]',self.cuda)
+                    vs.report(self.n_steps_so_far,'[Valid]')
             ###
             ### stop training (never)
             ###
