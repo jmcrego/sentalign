@@ -60,7 +60,7 @@ class stats():
         self.n_ok[name] = 0
         self.n_pred[name] = 0
 
-        return '({}: loss:{:.4f}, Acc:{:.3f}/{})'.format(name,loss,acc,npred)
+        return '({}: loss:{:.4f}, Acc:{:.4f}/{})'.format(name,loss,acc,npred)
 
 '''
     def add_batch(self,loss,loss_mlm,loss_ali,loss_cos):
