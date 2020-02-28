@@ -102,7 +102,7 @@ class Trainer():
         self.optimizer = NoamOpt(d_model, factor, warmup_steps, torch.optim.Adam(self.model.parameters(), lr=lrate, betas=(beta1, beta2), eps=eps))
         self.crit_mlm = LabelSmoothing(size=V, padding_idx=self.vocab.idx_pad, smoothing=label_smoothing)
         self.crit_ali = Align(padding_idx=self.vocab.idx_pad)
-        self.crit_cos = Cosine(padding_idx=self.vocab.idx_pad)
+        self.crit_cos = Cosine()
 
         if self.cuda:
             self.crit_mlm.cuda()

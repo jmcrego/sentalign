@@ -77,7 +77,6 @@ class LabelSmoothing(nn.Module):
             true_dist.index_fill_(0, mask.squeeze(), 0.0)
         #self.true_dist = true_dist #???
         npred = (target != self.padding_idx).sum()
-        npred = kkk
         return self.criterion(x, true_dist), npred #total loss of this batch (not normalized)
 
 
@@ -101,10 +100,8 @@ class Align(nn.Module):
 #        batch_error = torch.sum(error * mask) #compute errors for predicted_or_aligned_and_notmasked
 
 class Cosine(nn.Module):
-    def __init__(self,padding_idx,margin=0.0):
+    def __init__(self,margin=0.0):
         super(Cosine, self).__init__()
-        self.padding_idx = padding_idx
-#        self.criterion = nn.CosineEmbeddingLoss(margin=margin, size_average=None, reduce=None, reduction='sum')
         logging.debug('built criterion (cosine)')
 
     def forward(self, DP, y):
@@ -112,7 +109,7 @@ class Cosine(nn.Module):
         #y [bs]
         error = torch.log(1.0 + torch.exp(DP*y))
         batch_error = torch.sum(error) #total loss of this batch
-        npred = (y != self.padding_idx).sum()
+        npred = y.numel()
         return batch_error, npred #not normalized
 
 ##################################################################
@@ -144,9 +141,7 @@ class ComputeLossALI:
         #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
         #mask_s [bs,ls]
         #mask_t [bs,lt]
-        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls) 
-        hs = F.normalize(hs,p=2,dim=2,eps=1e-12) #all embeddings are normalized
-        ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
+        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, norm_h=True) 
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * 1.0 #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
             logging.info('nan detected in alignment matrix (DP_st)')
@@ -164,17 +159,17 @@ class ComputeLossCOS:
         #ls [bs] length of src tokens (without <cls>)
         #y [bs] uneven 1.0 if uneven, -1.0 if parallel
         #st_mask [bs,ls+lt+2]
-        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, self.pooling)
-        s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, es] => [bs, 1, es]
-        t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es] => [bs, es, 1]
-        DP = torch.bmm(s, t).squeeze(1) #[bs, 1] => [bs]
+        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, pooling=self.pooling, norm_st=True)
+        #s [bs, es]
+        #t [bs, es]
+        DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
         if torch.isnan(DP).any():
             logging.info('nan detected in unevent vector (DP)')
         loss, npred = self.criterion(DP, y) 
         return loss, npred #sum of sent loss over batch
 
 
-def sentence_embedding(h_st, st_mask, ls, pooling='mean'):
+def sentence_embedding(h_st, st_mask, ls, pooling='mean', norm_st=False, norm_h=False):
     hs = h_st[:,1:ls+1,:] #[bs, ls, es]
     ht = h_st[:,ls+2:,:] #[bs, lt, es]
     s_mask = st_mask[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]
@@ -191,8 +186,14 @@ def sentence_embedding(h_st, st_mask, ls, pooling='mean'):
             t = torch.sum(ht*t_mask, dim=1) / torch.sum(t_mask, dim=1)
         else:
             logging.error('bad pooling method: {}'.format(self.pooling))
-    s_mask = s_mask.squeeze(-1)
-    t_mask = t_mask.squeeze(-1)
+    s_mask = s_mask.squeeze(-1) #[bs, es]
+    t_mask = t_mask.squeeze(-1) #[bs, es]
+    if norm_h:
+        hs = F.normalize(hs,p=2,dim=2,eps=1e-12) #all embeddings are normalized
+        ht = F.normalize(ht,p=2,dim=2,eps=1e-12) #all embeddings are normalized
+    if norm_st:
+        s = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, es]
+        t = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, es]
     return s, t, hs, ht, s_mask, t_mask
 
 
