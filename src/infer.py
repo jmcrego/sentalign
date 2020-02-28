@@ -76,17 +76,10 @@ class Infer():
             for batch in self.data_test:
                 st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch)
                 h_st = self.model.forward(st, st_mask.unsqueeze(-2))
-                s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling)
-                #s = F.normalize(s,p=2,dim=1,eps=1e-12) #[bs, es]
-                #t = F.normalize(t,p=2,dim=1,eps=1e-12) #[bs, es]
-                #DP = F.cosine_similarity(s, t, dim=1, eps=1e-12).cpu().detach().numpy()
-                s = F.normalize(s,p=2,dim=1,eps=1e-12).unsqueeze(-2) #[bs, 1, es]
-                t = F.normalize(t,p=2,dim=1,eps=1e-12).unsqueeze(-1) #[bs, es, 1]
-                DP = torch.bmm(s, t).squeeze(-1).squeeze(-1).cpu().detach().numpy() #[bs, 1, 1] => [bs]
+                s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling, norm_st=True, norm_h=True)
+                DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(-1).squeeze(-1).cpu().detach().numpy() #[bs, 1, 1] => [bs]
                 if self.matrix:
-                    hs = F.normalize(hs,p=2,dim=2,eps=1e-12)
-                    ht = F.normalize(ht,p=2,dim=2,eps=1e-12)
-                    DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
+                    DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
 
                 ### output
                 for b in range(len(DP)):
