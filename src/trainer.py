@@ -27,20 +27,47 @@ def sequence_mask(lengths, mask_n_initials=0):
 class stats():
 
     def __init__(self):
-        self.n_steps = 0
-        self.sum_loss = 0.0
-        self.sum_loss_mlm = 0.0
-        self.sum_loss_ali = 0.0
-        self.sum_loss_cos = 0.0
+#        self.n_steps = 0
+#        self.sum_loss = 0.0
+#        self.sum_loss_mlm = 0.0
+#        self.sum_loss_ali = 0.0
+#        self.sum_loss_cos = 0.0
+        self.n_steps = defaultdict(int)
+        self.sum_loss = defaultdict(float)
+        self.n_ok = defaultdict(int)
+        self.n_pred = defaultdict(int)
         self.start = time.time()
 
+    def add(self,name,loss,nok=0,npred=0):
+        self.n_steps[name] += 1
+        self.sum_loss[name] += loss
+        self.n_ok[name] += nok
+        self.n_pred[name] += npred
+
+    def report(self,n_steps,trn_val_tst):
+        res = ['loss={:.4f}'.format(self.sum_loss['loss']/self.n_steps['loss'])]
+        for name in self.n_steps:
+            if name == 'loss':
+                self.n_steps[name] = 0
+                self.sum_loss[name] = 0.0
+                continue
+            res.append('({}: n={} loss={:.4f}, nok={} npred={})'.format(name,self.n_steps[name],self.sum_loss[name]/self.n_steps[name],self.n_ok[name],self.n_pred[name]))
+            self.n_steps[name] = 0
+            self.sum_loss[name] = 0.0
+            self.n_ok[name] = 0
+            self.n_pred[name] = 0
+        logging.info('{} n_steps: {} {}'.format(trn_val_tst,n_steps,' '.join(res)))
+
+
+'''
     def add_batch(self,loss,loss_mlm,loss_ali,loss_cos):
         self.n_steps += 1
         self.sum_loss += loss
         self.sum_loss_mlm += loss_mlm
         self.sum_loss_ali += loss_ali
         self.sum_loss_cos += loss_cos
-
+'''
+'''
     def report(self,n_steps,trn_val_tst,cuda):
         if False and cuda:
             torch.cuda.empty_cache()
@@ -60,7 +87,7 @@ class stats():
         self.sum_loss_ali = 0.0
         self.sum_loss_cos = 0.0
         self.start = time.time()
-
+'''
 
 class Trainer():
 
@@ -135,10 +162,9 @@ class Trainer():
         ts = stats()
         for batch in self.data_train:
             self.model.train()
-            ok, loss, loss_mlm, loss_ali, loss_cos = self.get_loss(batch)
+            ok, loss, loss_mlm, loss_ali, loss_cos = self.get_loss(batch,ts)
             if not ok:
                 continue
-            ts.add_batch(loss,loss_mlm,loss_ali,loss_cos)
             ### gradient computation / model update
             self.optimizer.zero_grad()
             loss.backward()
@@ -149,7 +175,8 @@ class Trainer():
             ### report
             ###
             if self.report_every_steps > 0 and self.n_steps_so_far % self.report_every_steps == 0:
-                ts.report(self.n_steps_so_far,'[Train]',self.cuda)
+#                ts.report(self.n_steps_so_far,'[Train]',self.cuda)
+                ts.report(self.n_steps_so_far,'[Train]')
             ###
             ### save checkpoint
             ###
@@ -163,10 +190,9 @@ class Trainer():
                 with torch.no_grad():
                     self.model.eval() ### avoids dropout
                     for batch in self.data_valid:
-                        ok, loss, loss_mlm, loss_ali, loss_cos = self.get_loss(batch)
+                        ok, loss, loss_mlm, loss_ali, loss_cos = self.get_loss(batch,vs)
                         if not ok:
                             continue
-                        vs.add_batch(loss,loss_mlm,loss_ali,loss_cos)
                     vs.report(self.n_steps_so_far,'[Valid]',self.cuda)
             ###
             ### stop training (never)
@@ -178,7 +204,7 @@ class Trainer():
         logging.info('End train')
 
 
-    def get_loss(self,batch):
+    def get_loss(self,batch,ds):
         st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch, self.step_mlm, self.step_ali, self.step_cos) 
         #st         [bs, ls+lt] contains the original words after concat(x,y)                       [input for ALI]
         #st_matrix  [bs, ls, lt] the alignment between src/tgt (<cls>/<sep> not included)           [reference for ALI]
@@ -186,6 +212,9 @@ class Trainer():
         #st_mlm_ref [bs, ls+lt] contains the original value of masked words; <pad> for the rest     [reference for MLM]
         #st_mask    [bs, ls+lt] True for x or y words in xy; false for <pad> (<cls>/<sep> included) [mask in MLM and ALI forward step]
         #st_uneven  [bs] 1.0 if uneven, -1.0 if parallel
+        #batch.dump()
+        #print(st_mlm)
+        #print(st_mlm_ref)
         loss = 0.0
         loss_mlm = 0.0
         loss_ali = 0.0
@@ -194,11 +223,12 @@ class Trainer():
             #st_mlm, st_mlm_ref, st_mask
             #npred_mlm = (st_mlm_ref != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
             h_st = self.model.forward(st_mlm, st_mask.unsqueeze(-2))
-            batch_loss_mlm, npred_mlm = self.computeloss_mlm(h_st, st_mlm_ref)
+            batch_loss_mlm, nok_mlm, npred_mlm = self.computeloss_mlm(h_st, st_mlm_ref)
             if npred_mlm == 0: 
                 logging.info('batch with nothing to predict')
                 return False, loss, loss_mlm, loss_ali, loss_cos
             loss_mlm = batch_loss_mlm / npred_mlm
+            ds.add('mlm',loss_mlm,nok_mlm,npred_mlm)
             loss += self.step_mlm['w'] * loss_mlm
 
         if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
@@ -207,15 +237,19 @@ class Trainer():
             if self.step_ali['w'] > 0.0: ### (ALI)
                 #st_matrix
                 #npred_ali = np.dot(batch.lsrc,batch.ltgt)
-                batch_loss_ali, npred_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, st_mask)
+                batch_loss_ali, nok_ali, npred_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, st_mask)
                 loss_ali = batch_loss_ali / npred_ali
+                ds.add('ali',loss_ali,nok_ali,npred_ali)
                 loss += self.step_ali['w'] * loss_ali
             if self.step_cos['w'] > 0.0: ### (COS)
                 #st_uneven 1.0 if uneven, -1.0 if parallel
                 #npred_cos = h_st.shape[0]
-                batch_loss_cos, npred_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, st_mask)
+                batch_loss_cos, nok_cos, npred_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, st_mask)
                 loss_cos = batch_loss_cos / npred_cos
+                ds.add('cos',loss_cos,nok_cos,npred_cos)
                 loss += self.step_cos['w'] * loss_cos
+
+        ds.add('loss',loss)
         return True, loss, loss_mlm, loss_ali, loss_cos
 
 

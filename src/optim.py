@@ -77,7 +77,8 @@ class LabelSmoothing(nn.Module):
             true_dist.index_fill_(0, mask.squeeze(), 0.0)
         #self.true_dist = true_dist #???
         npred = (target != self.padding_idx).sum()
-        return self.criterion(x, true_dist), npred #total loss of this batch (not normalized)
+        nok = 0
+        return self.criterion(x, true_dist), nok, npred #total loss of this batch (not normalized)
 
 
 class Align(nn.Module):
@@ -93,11 +94,11 @@ class Align(nn.Module):
         error = torch.log(1.0 + torch.exp(DP_st*y)) #[bs,ls,lt]
         mask_s = mask_s.unsqueeze(-1) #[bs, ls, 1]
         mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
-        batch_error = torch.sum(error * mask_s * mask_t) ### discard errors of padded words (total loss of this batch)
+        mask = ((DP_st>0.0) | (y<0.0)) #predictedAligned_or_refAligned
+        batch_error = torch.sum(error * mask * mask_s * mask_t) ### predicted or reference (aligned) and not padded (sum this batch)
+        nok = (DP_st*y*mask*mask_s*mask_t < 0.0).sum()
         npred = (y != self.padding_idx).sum()
-        return batch_error, npred #not normalized
-#        mask = ((DP_st>0.0) | (y<0.0)) & (mask_s & mask_t) #predicted_or_aligned_and_notmasked
-#        batch_error = torch.sum(error * mask) #compute errors for predicted_or_aligned_and_notmasked
+        return batch_error, nok, npred #not normalized
 
 class Cosine(nn.Module):
     def __init__(self,margin=0.0):
@@ -107,10 +108,12 @@ class Cosine(nn.Module):
     def forward(self, DP, y):
         #DP [bs]
         #y [bs]
+        nok = (DP*y < 0.0).sum()
         error = torch.log(1.0 + torch.exp(DP*y))
         batch_error = torch.sum(error) #total loss of this batch
         npred = y.numel()
-        return batch_error, npred #not normalized
+        nok = (DP*y > 0.0).sum()
+        return batch_error, nok, npred #not normalized
 
 ##################################################################
 ### Compute losses ###############################################
@@ -126,8 +129,9 @@ class ComputeLossMLM:
         x_hat = self.generator(h) # project x softmax #[bs,sl,V]
         x_hat = x_hat.contiguous().view(-1, x_hat.size(-1)) #[bs*sl,V]
         y = y.contiguous().view(-1) #[bs*sl]
-        loss, npred = self.criterion(x_hat, y) 
-        return loss, npred #sum of loss over batch
+        loss, nok, npred = self.criterion(x_hat, y) 
+#        print('MLM shape={} loss={:.4f} nok={} npred={} avg={:.4f}'.format(h.shape,loss, nok, npred, loss/npred))
+        return loss, nok, npred #sum of loss over batch
 
 
 class ComputeLossALI:
@@ -145,8 +149,9 @@ class ComputeLossALI:
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * 1.0 #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
             logging.info('nan detected in alignment matrix (DP_st)')
-        loss, pred = self.criterion(DP_st,y,s_mask,t_mask)
-        return loss, npred #sum of word-pair loss over batch
+        loss, nok, npred = self.criterion(DP_st,y,s_mask,t_mask)
+#        print('ALI shape={} loss={:.4f} nok={} npred={} avg={:.4f}'.format(h_st.shape, loss, nok, npred, loss/npred))
+        return loss, nok, npred #sum of word-pair loss over batch
 
 class ComputeLossCOS:
     def __init__(self, criterion, step_cos, opt=None):
@@ -165,8 +170,9 @@ class ComputeLossCOS:
         DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
         if torch.isnan(DP).any():
             logging.info('nan detected in unevent vector (DP)')
-        loss, npred = self.criterion(DP, y) 
-        return loss, npred #sum of sent loss over batch
+        loss, nok, npred = self.criterion(DP, y) 
+#        print('COS shape={} loss={:.4f} nok={} n={} avg={:.4f}'.format(h_st.shape,loss, nok, npred, loss/npred))
+        return loss, nok, npred #sum of sent loss over batch
 
 
 def sentence_embedding(h_st, st_mask, ls, pooling='mean', norm_st=False, norm_h=False):
