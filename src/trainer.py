@@ -51,7 +51,7 @@ class stats():
                 self.n_steps[name] = 0
                 self.sum_loss[name] = 0.0
                 continue
-            res.append('({}: loss={:.4f}, nok={} npred={})'.format(name,self.sum_loss[name]/self.n_steps[name],self.n_ok[name],self.n_pred[name]))
+            res.append('({}: loss={:.4f}, ok:{}/{})'.format(name,self.sum_loss[name]/self.n_steps[name],self.n_ok[name],self.n_pred[name]))
             self.n_steps[name] = 0
             self.sum_loss[name] = 0.0
             self.n_ok[name] = 0
