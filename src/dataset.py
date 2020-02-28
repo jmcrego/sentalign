@@ -253,6 +253,7 @@ class Dataset():
         self.vocab = vocab
         self.max_length = max_length
         self.is_infinite = is_infinite
+        self.max_sentences_per_file = max_sentences_per_file
         self.idx = []
         self.snt = [] #only to debug
 
@@ -312,7 +313,7 @@ class Dataset():
             self.idx.append([sidx,tidx,alig])
             self.snt.append([ssnt,tsnt])
 
-            if max_sentences_per_file > 0 and nsent >= max_sentences_per_file: 
+            if self.max_sentences_per_file > 0 and nsent >= self.max_sentences_per_file: 
                 break
 
         logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt,fali))
