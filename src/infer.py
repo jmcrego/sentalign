@@ -76,7 +76,7 @@ class Infer():
             for batch in self.data_test:
                 st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch)
                 h_st = self.model.forward(st, st_mask.unsqueeze(-2))
-                s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling, norm_st=True, norm_h=True)
+                s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling, norm_st=False, norm_h=False)
                 DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(-1).squeeze(-1).cpu().detach().numpy() #[bs, 1, 1] => [bs]
                 if self.matrix:
                     DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
