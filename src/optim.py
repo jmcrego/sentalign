@@ -109,11 +109,10 @@ class Cosine(nn.Module):
     def forward(self, DP, y):
         #DP [bs]
         #y [bs]
-        nok = (DP*y < 0.0).sum()
         error = torch.log(1.0 + torch.exp(DP*y))
         batch_error = torch.sum(error) #total loss of this batch
         npred = y.numel()
-        nok = (DP*y > 0.0).sum()
+        nok = (DP*y < 0.0).sum()
         return batch_error, nok, npred #not normalized
 
 ##################################################################
