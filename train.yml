@@ -20,7 +20,7 @@ valid:
   - [ './data/clean.TED2013.en-fr.en.val.tokc.gz',      './data/clean.TED2013.en-fr.fr.val.tokc.gz',      './data/clean.TED2013.en-fr.en.val.tokc.en2fr.gdfa.gz' ]
   - [ './data/clean.Wikipedia.en-fr.en.val.tokc.gz',    './data/clean.Wikipedia.en-fr.fr.val.tokc.gz',    './data/clean.Wikipedia.en-fr.en.val.tokc.en2fr.gdfa.gz' ]
 max_length: 80
-max_sentences_per_file: 1000
+max_sentences_per_file: 0
 batch_size: [2, 2] #[16, 16]
 swap_bitext: 0.5
 uneven_bitext: 0.5
