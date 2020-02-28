@@ -76,9 +76,10 @@ class LabelSmoothing(nn.Module):
         if mask.dim() > 0:
             true_dist.index_fill_(0, mask.squeeze(), 0.0)
         #self.true_dist = true_dist #???
+        error_batch = self.criterion(x, true_dist)
         npred = (target != self.padding_idx).sum()
-        nok = 0
-        return self.criterion(x, true_dist), nok, npred #total loss of this batch (not normalized)
+        nok = ((ypred == target) * mask).sum()
+        return error_batch, nok, npred #total loss of this batch (not normalized)
 
 
 class Align(nn.Module):
