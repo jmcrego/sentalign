@@ -228,7 +228,7 @@ class Trainer():
                 logging.info('batch with nothing to predict')
                 return False, loss, loss_mlm, loss_ali, loss_cos
             loss_mlm = batch_loss_mlm / npred_mlm
-            ds.add('mlm',loss_mlm,nok_mlm,npred_mlm)
+            ds.add('MLM',loss_mlm,nok_mlm,npred_mlm)
             loss += self.step_mlm['w'] * loss_mlm
 
         if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
@@ -239,14 +239,14 @@ class Trainer():
                 #npred_ali = np.dot(batch.lsrc,batch.ltgt)
                 batch_loss_ali, nok_ali, npred_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, st_mask)
                 loss_ali = batch_loss_ali / npred_ali
-                ds.add('ali',loss_ali,nok_ali,npred_ali)
+                ds.add('ALI',loss_ali,nok_ali,npred_ali)
                 loss += self.step_ali['w'] * loss_ali
             if self.step_cos['w'] > 0.0: ### (COS)
                 #st_uneven 1.0 if uneven, -1.0 if parallel
                 #npred_cos = h_st.shape[0]
                 batch_loss_cos, nok_cos, npred_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, st_mask)
                 loss_cos = batch_loss_cos / npred_cos
-                ds.add('cos',loss_cos,nok_cos,npred_cos)
+                ds.add('COS',loss_cos,nok_cos,npred_cos)
                 loss += self.step_cos['w'] * loss_cos
 
         ds.add('loss',loss)
