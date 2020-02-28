@@ -138,6 +138,7 @@ class ComputeLossALI:
     def __init__(self, criterion, step_ali, opt=None):
         self.criterion = criterion
         self.align_scale = step_ali['align_scale']
+        self.norm = step_ali['norm']
         self.opt = opt
 
     def __call__(self, h_st, y, ls, st_mask): 
@@ -145,8 +146,8 @@ class ComputeLossALI:
         #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
         #mask_s [bs,ls]
         #mask_t [bs,lt]
-        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, norm_h=True) 
-        DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * 1.0 #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
+        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, norm_h=self.norm) 
+        DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
             logging.info('nan detected in alignment matrix (DP_st)')
         loss, nok, npred = self.criterion(DP_st,y,s_mask,t_mask)
@@ -157,6 +158,7 @@ class ComputeLossCOS:
     def __init__(self, criterion, step_cos, opt=None):
         self.criterion = criterion
         self.pooling = step_cos['pooling']
+        self.norm = step_cos['norm']
         self.opt = opt
 
     def __call__(self, h_st, y, ls, st_mask): 
@@ -164,7 +166,7 @@ class ComputeLossCOS:
         #ls [bs] length of src tokens (without <cls>)
         #y [bs] uneven 1.0 if uneven, -1.0 if parallel
         #st_mask [bs,ls+lt+2]
-        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, pooling=self.pooling, norm_st=True)
+        s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, pooling=self.pooling, norm_st=self.norm)
         #s [bs, es]
         #t [bs, es]
         DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
