@@ -41,56 +41,28 @@ class stats():
 
     def report(self,n_steps,trn_val_tst):
         res = []
-        res.append('loss={:.4f}'.format(self.sum_loss['loss']/self.n_steps['loss']))
+        res.append('loss={:.4f} {:.2f} steps/sec'.format(self.sum_loss['loss']/self.n_steps['loss'],self.n_steps['loss']/(time.time()-self.start)))
         res.append(self.name2report('MLM'))
         res.append(self.name2report('ALI'))
         res.append(self.name2report('COS'))
         logging.info('{} n_steps: {}\t{}'.format(trn_val_tst,n_steps,'\t'.join(res)))
+        self.start = time.time()
         ### all losses are averaged per n_preds and per n_steps
 
     def name2report(self,name):
         if name not in self.sum_loss:
             return ''
         loss = self.sum_loss[name]/self.n_steps[name]
-        acc = 1.0*self.n_ok[name]/self.n_pred[name]
         npred = self.n_pred[name]
-
+        acc = 0.0
+        if self.n_pred[name] > 0:
+            acc = 1.0*self.n_ok[name]/self.n_pred[name]
         self.n_steps[name] = 0
         self.sum_loss[name] = 0.0
         self.n_ok[name] = 0
         self.n_pred[name] = 0
-
         return '({}: loss:{:.4f}, Acc:{:.4f}/{})'.format(name,loss,acc,npred)
 
-'''
-    def add_batch(self,loss,loss_mlm,loss_ali,loss_cos):
-        self.n_steps += 1
-        self.sum_loss += loss
-        self.sum_loss_mlm += loss_mlm
-        self.sum_loss_ali += loss_ali
-        self.sum_loss_cos += loss_cos
-'''
-'''
-    def report(self,n_steps,trn_val_tst,cuda):
-        if False and cuda:
-            torch.cuda.empty_cache()
-            device = torch.cuda.current_device()
-            Gb_reserved = torch.cuda.memory_reserved(device=device) / 1073741824
-            Gb_used = torch.cuda.get_device_properties(device=device).total_memory / 1073741824
-
-        loss_avg = self.sum_loss/self.n_steps
-        loss_mlm_avg = self.sum_loss_mlm/self.n_steps
-        loss_ali_avg = self.sum_loss_ali/self.n_steps
-        loss_cos_avg = self.sum_loss_cos/self.n_steps
-        logging.info("{} n_steps: {} ({:.2f} steps/sec) Loss: {:.4f} (mlm:{:.4f}, ali:{:.4f}, cos:{:.4f})".format(trn_val_tst, n_steps, self.n_steps/(time.time()-self.start), loss_avg, loss_mlm_avg, loss_ali_avg, loss_cos_avg))
-        #logging.info('{}'.format(torch.cuda.memory_summary(device=device, abbreviated=False)))
-        self.n_steps = 0
-        self.sum_loss = 0.0
-        self.sum_loss_mlm = 0.0
-        self.sum_loss_ali = 0.0
-        self.sum_loss_cos = 0.0
-        self.start = time.time()
-'''
 
 class Trainer():
 
