@@ -124,6 +124,7 @@ class ComputeLossMLM:
         self.generator = generator
         self.criterion = criterion
         self.opt = opt
+        logging.info('built ComputeLossMLM')
 
     def __call__(self, h, y): 
         x_hat = self.generator(h) # project x softmax #[bs,sl,V]
@@ -140,6 +141,7 @@ class ComputeLossALI:
         self.align_scale = step_ali['align_scale']
         self.norm = step_ali['norm']
         self.opt = opt
+        logging.info('built ComputeLossALI align_scale={} norm={}'.format(self.align_scale, self.norm))
 
     def __call__(self, h_st, y, ls, st_mask): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
@@ -160,6 +162,7 @@ class ComputeLossCOS:
         self.pooling = step_cos['pooling']
         self.norm = step_cos['norm']
         self.opt = opt
+        logging.info('built ComputeLossCOS pooling={} norm={}'.format(self.pooling, self.norm))
 
     def __call__(self, h_st, y, ls, st_mask): 
         #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
