@@ -51,13 +51,13 @@ class stats():
                 self.n_steps[name] = 0
                 self.sum_loss[name] = 0.0
                 continue
-            res.append('({}: loss/pred/step={:.4f}, nok={} npred={})'.format(name,self.sum_loss[name]/self.n_steps[name],self.n_ok[name],self.n_pred[name]))
+            res.append('({}: loss={:.4f}, nok={} npred={})'.format(name,self.sum_loss[name]/self.n_steps[name],self.n_ok[name],self.n_pred[name]))
             self.n_steps[name] = 0
             self.sum_loss[name] = 0.0
             self.n_ok[name] = 0
             self.n_pred[name] = 0
         logging.info('{} n_steps: {} {}'.format(trn_val_tst,n_steps,' '.join(res)))
-
+        ### all losses are averaged per n_preds and per n_steps
 
 '''
     def add_batch(self,loss,loss_mlm,loss_ali,loss_cos):
