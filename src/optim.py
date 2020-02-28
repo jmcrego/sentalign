@@ -82,9 +82,8 @@ class LabelSmoothing(nn.Module):
 
 
 class Align(nn.Module):
-    def __init__(self, padding_idx):
+    def __init__(self):
         super(Align, self).__init__()
-        self.padding_idx = padding_idx
         logging.debug('built criterion (align)')
         
     def forward(self, DP_st, y, mask_s, mask_t):
@@ -97,7 +96,7 @@ class Align(nn.Module):
         mask = ((DP_st>0.0) | (y<0.0)) #predictedAligned_or_refAligned
         batch_error = torch.sum(error * mask * mask_s * mask_t) ### predicted or reference (aligned) and not padded (sum this batch)
         nok = (DP_st*y*mask*mask_s*mask_t < 0.0).sum()
-        npred = (y != self.padding_idx).sum()
+        npred = (mask*mask_s*mask_t == 1.0).sum()
         return batch_error, nok, npred #not normalized
 
 class Cosine(nn.Module):
