@@ -59,7 +59,7 @@ class Infer():
     def __call__(self, file):
         logging.info('Start testing')
         files = file.split(',')
-        self.data_test = Dataset(self.token,self.vocab,max_length=0,is_infinite=False)
+        self.data_test = Dataset(self.token,self.vocab,max_length=0,is_infinite=False,max_sentences_per_file=0)
         if len(files) == 2:
             self.data_test.add2files(files[0],files[1])
         elif len(files) == 3:

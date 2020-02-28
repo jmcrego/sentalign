@@ -109,6 +109,7 @@ class Trainer():
         self.step_mlm = opts.train['steps']['mlm']
         self.step_ali = opts.train['steps']['ali']
         self.step_cos = opts.train['steps']['cos']
+        self.max_sentences_per_file = opts.train['max_sentences_per_file']
 
         V = len(self.vocab)
         N = opts.cfg['num_layers']
@@ -145,14 +146,14 @@ class Trainer():
         self.computeloss_cos = ComputeLossCOS(self.crit_cos, self.step_cos, self.optimizer)
 
         logging.info('read Train data')
-        self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True)
+        self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True,max_sentences_per_file=self.max_sentences_per_file)
         for (fs,ft,fa) in opts.train['train']:
             self.data_train.add3files(fs,ft,fa)
         logging.info('build Train batches')
         self.data_train.build_batches(self.batch_size[0],self.swap_bitext,self.uneven_bitext)
 
         logging.info('read Valid data')
-        self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False)
+        self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False,max_sentences_per_file=0)
         for (fs,ft,fa) in opts.train['valid']:
             self.data_valid.add3files(fs,ft,fa)
         logging.info('build Valid batches')
