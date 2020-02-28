@@ -52,7 +52,7 @@ class stats():
         if name not in self.sum_loss:
             return ''
         loss = self.sum_loss[name]/self.n_steps[name]
-        acc = self.n_ok[name]/self.n_pred[name]
+        acc = 1.0*self.n_ok[name]/self.n_pred[name]
         npred = self.n_pred[name]
 
         self.n_steps[name] = 0
