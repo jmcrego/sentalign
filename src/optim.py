@@ -79,7 +79,7 @@ class LabelSmoothing(nn.Module):
         error_batch = self.criterion(x, true_dist)
         npred = (target != self.padding_idx).sum()
         ypred = torch.argmax(x,dim=1)
-        nok = ((ypred == target) * mask).sum()
+        nok = ((ypred == target) & (target != self.padding_idx)).sum()
         return error_batch, nok, npred #total loss of this batch (not normalized)
 
 
