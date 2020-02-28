@@ -42,14 +42,9 @@ class stats():
     def report(self,n_steps,trn_val_tst):
         res = []
         res.append('loss={:.4f}'.format(self.sum_loss['loss']/self.n_steps['loss']))
-        res.append(name2report('MLM'))
-        res.append(name2report('ALI'))
-        res.append(name2report('COS'))
-
-        self.n_steps[name] = 0
-        self.sum_loss[name] = 0.0
-        self.n_ok[name] = 0
-        self.n_pred[name] = 0
+        res.append(self.name2report('MLM'))
+        res.append(self.name2report('ALI'))
+        res.append(self.name2report('COS'))
         logging.info('{} n_steps: {}\t{}'.format(trn_val_tst,n_steps,'\t'.join(res)))
         ### all losses are averaged per n_preds and per n_steps
 
@@ -59,6 +54,12 @@ class stats():
         loss = self.sum_loss[name]/self.n_steps[name]
         acc = self.n_ok[name]/self.n_pred[name]
         npred = self.n_pred[name]
+
+        self.n_steps[name] = 0
+        self.sum_loss[name] = 0.0
+        self.n_ok[name] = 0
+        self.n_pred[name] = 0
+
         return '({}: loss={:.4f}, Acc:{:.3f}/{})'.format(name,loss,acc,npred)
 
 '''
