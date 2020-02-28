@@ -193,9 +193,6 @@ class Trainer():
         if self.step_mlm['w'] > 0.0: ### (MLM)
             #st_mlm, st_mlm_ref, st_mask
             #npred_mlm = (st_mlm_ref != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
-            if npred_mlm == 0: 
-                logging.info('batch with nothing to predict')
-                return False, loss, loss_mlm, loss_ali, loss_cos
             h_st = self.model.forward(st_mlm, st_mask.unsqueeze(-2))
             batch_loss_mlm, npred_mlm = self.computeloss_mlm(h_st, st_mlm_ref)
             if npred_mlm == 0: 
