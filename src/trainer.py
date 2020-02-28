@@ -192,12 +192,15 @@ class Trainer():
         loss_cos = 0.0
         if self.step_mlm['w'] > 0.0: ### (MLM)
             #st_mlm, st_mlm_ref, st_mask
-            npred_mlm = (st_mlm_ref != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
+            #npred_mlm = (st_mlm_ref != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
             if npred_mlm == 0: 
                 logging.info('batch with nothing to predict')
                 return False, loss, loss_mlm, loss_ali, loss_cos
             h_st = self.model.forward(st_mlm, st_mask.unsqueeze(-2))
-            batch_loss_mlm = self.computeloss_mlm(h_st, st_mlm_ref)
+            batch_loss_mlm, npred_mlm = self.computeloss_mlm(h_st, st_mlm_ref)
+            if npred_mlm == 0: 
+                logging.info('batch with nothing to predict')
+                return False, loss, loss_mlm, loss_ali, loss_cos
             loss_mlm = batch_loss_mlm / npred_mlm
             loss += self.step_mlm['w'] * loss_mlm
 
@@ -206,14 +209,14 @@ class Trainer():
             h_st = self.model.forward(st, st_mask.unsqueeze(-2))
             if self.step_ali['w'] > 0.0: ### (ALI)
                 #st_matrix
-                npred_ali = np.dot(batch.lsrc,batch.ltgt)
-                batch_loss_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, st_mask)
+                #npred_ali = np.dot(batch.lsrc,batch.ltgt)
+                batch_loss_ali, npred_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, st_mask)
                 loss_ali = batch_loss_ali / npred_ali
                 loss += self.step_ali['w'] * loss_ali
             if self.step_cos['w'] > 0.0: ### (COS)
                 #st_uneven 1.0 if uneven, -1.0 if parallel
-                npred_cos = h_st.shape[0]
-                batch_loss_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, st_mask)
+                #npred_cos = h_st.shape[0]
+                batch_loss_cos, npred_cos = self.computeloss_cos(h_st, st_uneven, batch.maxlsrc-1, st_mask)
                 loss_cos = batch_loss_cos / npred_cos
                 loss += self.step_cos['w'] * loss_cos
         return True, loss, loss_mlm, loss_ali, loss_cos
