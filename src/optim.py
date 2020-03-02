@@ -89,17 +89,20 @@ class Align(nn.Module):
         logging.debug('built criterion (align)')
         
     def forward(self, DP_st, y, mask_s, mask_t):
+        assert DP_st.shape == y.shape
+        assert len(DP_st.shape) == 3
+        assert len(mask_s.shape) == 2 #[bs, ls]
+        assert len(mask_t.shape) == 2 #[bs, lt]
+
         ### considering DP_st * y:
         # different sign (success)
         # same sign (error)
+        mask = ((DP_st>0.0) | (y<0.0)) * mask_s.unsqueeze(-1) * mask_t.unsqueeze(-2) ### predicted(DP_st>0.0) or aligned(y<0.0) and not masked
         error = torch.log(1.0 + torch.exp(DP_st*y)) #[bs,ls,lt]
-        mask_s = mask_s.unsqueeze(-1) #[bs, ls, 1]
-        mask_t = mask_t.unsqueeze(-2) #[bs, 1, lt]
-        mask = ((DP_st>0.0) | (y<0.0)) #predictedAligned_or_refAligned
-        batch_error = torch.sum(error * mask * mask_s * mask_t) ### predicted or reference (aligned) and not padded (sum this batch)
-        nok = (DP_st*y*mask*mask_s*mask_t < 0.0).sum()
-        npred = (mask*mask_s*mask_t == 1.0).sum()
-        return batch_error, nok, npred #not normalized
+        batch_error = torch.sum(error*mask) # sum over errors of this batch (all word pairs not masked)
+        nok = (DP_st*y*mask < 0.0).sum()
+        npred = (mask == 1.0).sum()
+        return batch_error, nok, npred #total loss of this batch (not normalized)
 
 class Cosine(nn.Module):
     def __init__(self,margin=0.0):
@@ -107,13 +110,13 @@ class Cosine(nn.Module):
         logging.debug('built criterion (cosine)')
 
     def forward(self, DP, y):
-        #DP [bs]
-        #y [bs]
+        assert DP.shape == y.shape #DP [bs], y [bs]
+        assert len(DP.shape) == 1  
         error = torch.log(1.0 + torch.exp(DP*y))
-        batch_error = torch.sum(error) #total loss of this batch
+        batch_error = torch.sum(error) 
         npred = y.numel()
         nok = (DP*y < 0.0).sum()
-        return batch_error, nok, npred #not normalized
+        return batch_error, nok, npred #total loss of this batch (not normalized)
 
 ##################################################################
 ### Compute losses ###############################################
@@ -131,29 +134,34 @@ class ComputeLossMLM:
         x_hat = x_hat.contiguous().view(-1, x_hat.size(-1)) #[bs*sl,V]
         y = y.contiguous().view(-1) #[bs*sl]
         loss, nok, npred = self.criterion(x_hat, y) 
-#        print('MLM shape={} loss={:.4f} nok={} npred={} avg={:.4f}'.format(h.shape,loss, nok, npred, loss/npred))
         return loss, nok, npred #sum of loss over batch
 
 
 class ComputeLossALI:
     def __init__(self, criterion, step_ali, opt=None):
         self.criterion = criterion
-        self.align_scale = step_ali['align_scale']
+        self.scale = step_ali['scale']
         self.norm = step_ali['norm']
         self.opt = opt
-        logging.info('built ComputeLossALI align_scale={} norm={}'.format(self.align_scale, self.norm))
+        logging.info('built ComputeLossALI scale={} norm={}'.format(self.scale, self.norm))
 
     def __call__(self, h_st, y, ls, st_mask): 
-        #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
-        #y [bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
-        #mask_s [bs,ls]
-        #mask_t [bs,lt]
+        #ls is max leng of source words
+        assert len(h_st.shape) == 3 #[bs, ls+lt+2, es] embeddings of source and target words (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
+        assert len(y.shape) == 3 #[bs, ls, lt] alignment matrix (only words are considered neither <cls> nor <sep>)
+        assert len(st_mask.shape) == 2 #st_mask [bs,ls+lt+2]
+        assert st_mask.shape[0:2] == h_st.shape[0:2]
         s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, norm_h=self.norm) 
-        DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.align_scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
+        #s [bs, es]
+        #t [bs, es]
+        #hs [bs, ls, es]
+        #ht [bs, lt, es]
+        #s_mask [bs, ls]
+        #t_mask [bs, lt]
+        DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
             logging.info('nan detected in alignment matrix (DP_st)')
         loss, nok, npred = self.criterion(DP_st,y,s_mask,t_mask)
-#        print('ALI shape={} loss={:.4f} nok={} npred={} avg={:.4f}'.format(h_st.shape, loss, nok, npred, loss/npred))
         return loss, nok, npred #sum of word-pair loss over batch
 
 class ComputeLossCOS:
@@ -165,22 +173,29 @@ class ComputeLossCOS:
         logging.info('built ComputeLossCOS pooling={} norm={}'.format(self.pooling, self.norm))
 
     def __call__(self, h_st, y, ls, st_mask): 
-        #h_st [bs, ls+lt+2, es] embeddings of source and target words after encoder (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
-        #ls [bs] length of src tokens (without <cls>)
-        #y [bs] uneven 1.0 if uneven, -1.0 if parallel
-        #st_mask [bs,ls+lt+2]
+        #ls is max leng of source words
+        assert len(y.shape) == 1 #[bs] uneven 1.0 if uneven, -1.0 if parallel
+        assert len(h_st.shape) == 3 #[bs, ls+lt+2, es] embeddings of source and target words (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
+        assert len(st_mask) == 2 #[bs,ls+lt+2]
+        assert st_mask.shape[0:2] == h_st.shape[0:2]
         s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, pooling=self.pooling, norm_st=self.norm)
         #s [bs, es]
         #t [bs, es]
+        #hs [bs, ls, es]
+        #ht [bs, lt, es]
+        #s_mask [bs, ls]
+        #t_mask [bs, lt]
         DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
         if torch.isnan(DP).any():
             logging.info('nan detected in unevent vector (DP)')
         loss, nok, npred = self.criterion(DP, y) 
-#        print('COS shape={} loss={:.4f} nok={} n={} avg={:.4f}'.format(h_st.shape,loss, nok, npred, loss/npred))
         return loss, nok, npred #sum of sent loss over batch
 
 
 def sentence_embedding(h_st, st_mask, ls, pooling='mean', norm_st=False, norm_h=False):
+    assert len(h_st.shape) == 3 #[bs, ls+lt+2, es] embeddings of source and target words (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
+    assert len(st_mask.shape) == 2 #[bs, ls+lt+2]
+    assert st_mask.shape[0:2] == h_st.shape[0:2]
     hs = h_st[:,1:ls+1,:] #[bs, ls, es]
     ht = h_st[:,ls+2:,:] #[bs, lt, es]
     s_mask = st_mask[:,1:ls+1].type(torch.float64).unsqueeze(-1) #[bs, ls, 1]

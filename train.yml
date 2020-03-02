@@ -20,13 +20,13 @@ valid:
   - [ './data/clean.TED2013.en-fr.en.val.tokc.gz',      './data/clean.TED2013.en-fr.fr.val.tokc.gz',      './data/clean.TED2013.en-fr.en.val.tokc.en2fr.gdfa.gz' ]
   - [ './data/clean.Wikipedia.en-fr.en.val.tokc.gz',    './data/clean.Wikipedia.en-fr.fr.val.tokc.gz',    './data/clean.Wikipedia.en-fr.en.val.tokc.en2fr.gdfa.gz' ]
 max_length: 80
-max_sentences_per_file: 0
-batch_size: [16, 16]
+max_sentences_per_file: 1000
+batch_size: 24
 swap_bitext: 0.5
 uneven_bitext: 0.5
 steps:
   mlm:  { w: 0.0, p_mask: 0.15, r_same: 0.1, r_rand: 0.1 }
-  ali:  { w: 1.0, norm: false, align_scale: 0.001 }
+  ali:  { w: 1.0, norm: false, scale: 1.0 }
   cos:  { w: 0.0, norm: false, pooling: mean } 
 checkpoint_every_steps: 5000
 validation_every_steps: 5000

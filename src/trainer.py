@@ -122,14 +122,14 @@ class Trainer():
         for (fs,ft,fa) in opts.train['train']:
             self.data_train.add3files(fs,ft,fa)
         logging.info('build Train batches')
-        self.data_train.build_batches(self.batch_size[0],self.swap_bitext,self.uneven_bitext)
+        self.data_train.build_batches(self.batch_size,self.swap_bitext,self.uneven_bitext)
 
         logging.info('read Valid data')
         self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False,max_sentences_per_file=0)
         for (fs,ft,fa) in opts.train['valid']:
             self.data_valid.add3files(fs,ft,fa)
         logging.info('build Valid batches')
-        self.data_valid.build_batches(self.batch_size[1],self.swap_bitext,self.uneven_bitext)
+        self.data_valid.build_batches(self.batch_size,self.swap_bitext,self.uneven_bitext)
 
 
     def __call__(self):
@@ -305,13 +305,14 @@ def format_batch(vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None
                 if not vocab.is_reserved(st[i,j]):
                     r = random.random()          # float in range [0.0, 1,0)
                     if r < p_mask:               ### masked token that will be predicted
-                        st_mlm_ref[i,j] = st[i,j]   # save the original value to be used as reference
+                        st_mlm_ref[i,j] = st[i,j]# save the original value to be used as reference
+                        ### replace original token by another. float in range [0.0, 1,0)
                         q = random.random()      # float in range [0.0, 1,0)
-                        if q < r_same:           ### same
+                        if q < r_same:           # use the same original token (st[i,j])
                             pass
-                        elif q < r_same+r_rand:  ### random (among all vocab words in range [7, |vocab|])
+                        elif q < r_same+r_rand:  # take a random token (among all vocab words in range [7, |vocab|])
                             st_mlm[i,j] = random.randint(7,len(vocab)-1)
-                        else:                    # <msk>
+                        else:                    # use <msk>
                             st_mlm[i,j] = vocab.idx_msk
     else:
         st_mlm = []
