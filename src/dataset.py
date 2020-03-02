@@ -134,7 +134,7 @@ class batch():
         self.p_swap = p_swap
 
     def __len__(self):
-        return len(self.sidx)
+        return len(self.indexs)
 
     def add(self, index, idx, snt):
         self.indexs.append(index)
@@ -143,6 +143,9 @@ class batch():
         elif len(idx) == 2:
             (sidx, tidx) = idx
             ali = [] 
+        else:
+            logging.error('bad number of fields')
+            sys.exit()
         (src, tgt) = snt
 
         if len(tidx) > 1 and random.random() < self.p_swap:
@@ -183,7 +186,7 @@ class batch():
         if len(self.tidx) > 0:
             self.ltgt = np.array(self.ltgt)
             self.maxltgt = np.max(self.ltgt)
-        bs = len(self.sidx)
+        bs = len(self.indexs)
         ### pad source/target sentences
         for b in range(bs):
             self.sidx[b] += [idx_pad]*(self.maxlsrc-len(self.sidx[b])) 
