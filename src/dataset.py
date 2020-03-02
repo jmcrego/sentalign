@@ -427,16 +427,21 @@ class Dataset():
             indexs = np.argsort(data_len1)
 
         currbatch = batch(p_swap) 
-        for i in range(len(indexs)):
-            index = indexs[i]
+        for index in indexs:
             currbatch.add(index,self.idx[index],self.snt[index])
 
-            if len(currbatch) >= self.batch_size or i == len(indexs)-1: ### record new batch
+            if len(currbatch) >= self.batch_size: ### record new batch
                 currbatch.pad(p_uneven)
                 self.batches.append(deepcopy(currbatch))
                 n_swap += currbatch.n_swap
                 n_uneven += currbatch.n_uneven
                 currbatch = batch(p_swap)
+
+        if len(currbatch): ### record last batch
+            currbatch.pad(p_uneven)
+            self.batches.append(deepcopy(currbatch))
+            n_swap += currbatch.n_swap
+            n_uneven += currbatch.n_uneven
 
         logging.info('built {} batches n_swap={} n_uneven={}'.format(len(self.batches),n_swap,n_uneven))
 
