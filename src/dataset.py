@@ -191,11 +191,11 @@ class batch():
             self.maxltgt = np.max(self.ltgt)
         bs = len(self.indexs)
         ### pad source/target sentences
-        logging.info('building [{},{}] and [{},{}]'.format(bs,self.maxlsrc,bs,self.maxltgt))
+#        logging.info('building [{},{}] and [{},{}]'.format(bs,self.maxlsrc,bs,self.maxltgt))
         for b in range(bs):
             self.sidx[b] += [idx_pad]*(self.maxlsrc-len(self.sidx[b])) 
             if len(self.tidx) > 0:
-                logging.info('\tadditional {}'.format(self.maxltgt-len(self.tidx[b])))
+#                logging.info('\tadditional {}'.format(self.maxltgt-len(self.tidx[b])))
                 self.tidx[b] += [idx_pad]*(self.maxltgt-len(self.tidx[b]))
         ### build alignment matrix
         if len(self.link) > 0:
