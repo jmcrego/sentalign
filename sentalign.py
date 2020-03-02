@@ -25,7 +25,7 @@ class Argv():
 
  Inference:
    -infer     YAML : test config file (inference mode)
-   -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default mean)
+   -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default max)
    -batch_size INT : batch size use on inference (default 32)
    -scale    FLOAT : scale for alignment matrix (default 1.0)
    -matrix         : show laignment matrix
@@ -55,7 +55,7 @@ class Argv():
         self.flearn = None
         self.finfer = None
         self.seed = 12345
-        self.pooling = 'mean'
+        self.pooling = 'max'
         self.matrix = False
         self.batch_size = 32
         self.scale = 1.0
