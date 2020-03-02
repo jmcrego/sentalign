@@ -132,6 +132,8 @@ class batch():
         self.link = [] #batch of alignment pairs [[0,0], [1,1], ...]
         self.indexs = [] #[i1, i2, ...] position in the original file
         self.p_swap = p_swap
+        self.n_swap = 0
+        self.n_uneven = 0
 
     def __len__(self):
         return len(self.indexs)
@@ -156,6 +158,7 @@ class batch():
             tgt = list(src)
             src = list(tgt)
             do_swap = True
+            self.n_swap += 1
         else:
             do_swap = False
 
@@ -207,6 +210,7 @@ class batch():
 
         self.is_uneven = [False] * len(self.indexs)
         if p_uneven > 0.0:
+            self.n_uneven += 1
             for b in range(1,len(self.indexs)):
                 if random.random() < p_uneven:
                     self.is_uneven[b] = True
@@ -402,6 +406,8 @@ class Dataset():
 
 
     def build_batches(self, batch_size, p_swap=0.0, p_uneven=0.0):
+        n_swap = 0
+        n_uneven = 0
         self.batches = []
         self.batch_size = batch_size
         if len(self.idx) == 0:
@@ -421,13 +427,16 @@ class Dataset():
         currbatch = batch(p_swap) 
         for i in range(len(indexs)):
             index = indexs[i]
-
             currbatch.add(index,self.idx[index],self.snt[index])
-            if len(currbatch) == self.batch_size or i == len(indexs)-1: ### record new batch
+
+            if len(currbatch) >= self.batch_size or i == len(indexs)-1: ### record new batch
                 currbatch.pad(p_uneven)
                 self.batches.append(deepcopy(currbatch))
-                currbatch = batch()
-        logging.info('built {} batches'.format(len(self.batches)))
+                n_swap += currbatch.n_swap
+                n_uneven += currbatch.n_uneven
+                currbatch = batch(p_swap)
+
+        logging.info('built {} batches n_swap={} n_uneven={}'.format(len(self.batches),n_swap,n_uneven))
 
     def __len__(self):
         return len(self.idx)
