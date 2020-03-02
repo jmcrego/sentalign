@@ -27,7 +27,6 @@ class Argv():
    -infer     YAML : test config file (inference mode)
    -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default max)
    -batch_size INT : batch size use on inference (default 32)
-   -scale    FLOAT : scale for alignment matrix (default 1.0)
    -matrix         : show laignment matrix
 
  Average:
@@ -58,7 +57,6 @@ class Argv():
         self.pooling = 'max'
         self.matrix = False
         self.batch_size = 32
-        self.scale = 1.0
         while len(argv):
             tok = argv.pop(0)
             if   (tok=="-config"   and len(argv)): self.fcfg = argv.pop(0)
@@ -69,7 +67,6 @@ class Argv():
             elif (tok=="-infer"    and len(argv)): self.finfer = argv.pop(0)
             elif (tok=="-pooling"  and len(argv)): self.pooling = argv.pop(0)
             elif (tok=="-batch_size" and len(argv)): self.batch_size = int(argv.pop(0))
-            elif (tok=="-scale"    and len(argv)): self.scale = float(argv.pop(0))
             elif (tok=="-matrix"):                 self.matrix = True
             elif (tok=="-seed"     and len(argv)): self.seed = int(argv.pop(0))
             elif (tok=="-h"):
@@ -132,18 +129,6 @@ def create_experiment(opts):
 
 if __name__ == "__main__":
     
-    #create_logger(None,'debug')
-    #cfg_token = { 'bpe_model_path': './data/joint_enfr.30k.bpe', 'mode': 'conservative', 'joiner_annotate': False }
-    #cfg_token = { 'mode': 'conservative', 'joiner_annotate': False }
-    #token = OpenNMTTokenizer(**cfg_token)
-    #token = None
-    #vocab = Vocab('./data/vocab')
-    #data = Dataset(token,vocab,max_length=0,is_infinite=False)
-    #data.add3files('./data/clean.news-commentary-v14.en.trn.tokc','./data/clean.news-commentary-v14.fr.trn.tokc','./data/clean.news-commentary-v14.en.trn.tokc.en2fr.gdfa')
-    #data.add3files('./data/clean.GNOME.en-fr.en.trn.tokc','./data/clean.GNOME.en-fr.fr.trn.tokc','./data/clean.GNOME.en-fr.en.trn.tokc.en2fr.gdfa')
-    #data.build_batches(4)
-    #sys.exit()
-
     opts = Argv(sys.argv)
 
     if opts.seed > 0:
