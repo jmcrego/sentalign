@@ -207,12 +207,12 @@ class Trainer():
 
         if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
             #st, st_mask
-            print('st',st)
-            sys.exit()
             h_st = self.model.forward(st, st_mask.unsqueeze(-2))
             if self.step_ali['w'] > 0.0: ### (ALI)
                 #st_matrix
                 #npred_ali = np.dot(batch.lsrc,batch.ltgt)
+                print('h_st',h_st)
+                sys.exit()
                 batch_loss_ali, nok_ali, npred_ali = self.computeloss_ali(h_st, st_matrix, batch.maxlsrc-1, st_mask)
                 loss_ali = batch_loss_ali / npred_ali
                 ds.add('ALI',loss_ali,nok_ali,npred_ali)
