@@ -122,111 +122,64 @@ class Vocab():
 ####################################################################
 
 class batch():
-    def __init__(self,p_swap=0.0):
-        self.src = []
-        self.tgt = []
+    def __init__(self):
+        self.src = [] #source tokens (strings)
+        self.tgt = [] #target tokens (strings)
         self.sidx = [] #batch of [<cls>, <s1>, ..., <sI>, [<pad>]*]
         self.tidx = [] #batch of [<sep>, <t1>, ..., <tJ>, [<pad>]*]
         self.lsrc = [] #[I1, I2, ...] size of src sentences including <cls>
         self.ltgt = [] #[J1, J2, ...] size of src sentences including <sep>
-        self.link = [] #batch of alignment pairs [[0,0], [1,1], ...]
-        self.indexs = [] #[i1, i2, ...] position in the original file
-        self.p_swap = p_swap
-        self.n_swap = 0
-        self.n_uneven = 0
+        self.link = [] #batch of alignment pairs [[0,0], [1,1], ...] or empty
+        self.parallel = [] #for each sentence pair indicates if it is parallel:True or divergent:False
+        self.indexs = [] #position in the original file
 
     def __len__(self):
         return len(self.indexs)
 
-    def add(self, index, idx, snt):
+    def add(self, index, data):
         self.indexs.append(index)
-        if len(idx) == 3:
-            (sidx, tidx, ali) = idx
-        elif len(idx) == 2:
-            (sidx, tidx) = idx
-            ali = [] 
+        if len(data) == 7:
+            (src,tgt,sidx,tidx,link,is_swap,is_uneven) = data
         else:
-            logging.error('bad number of fields')
+            logging.error('bad number of fields in example index={}'.format(index))
             sys.exit()
-        (src, tgt) = snt
 
-        if len(tidx) > 1 and random.random() < self.p_swap:
-            aidx = list(tidx)
-            tidx = list(sidx)
-            sidx = list(aidx)
-            aux = list(tgt)
-            tgt = list(src)
-            src = list(tgt)
-            do_swap = True
-            self.n_swap += 1
-        else:
-            do_swap = False
-
+        sidx.insert(0,idx_cls)
+        tidx.insert(0,idx_sep)
         self.src.append(src)
         self.tgt.append(tgt)
-        sidx.insert(0,idx_cls)
-        self.lsrc.append(len(sidx)) #lsrc is the position of sI
+        self.lsrc.append(len(sidx)) #length of source sentence considering <cls>
+        self.ltgt.append(len(tidx)) #length of target sentence considering <sep>
         self.sidx.append(sidx) ### [<cls>, <s1>, ..., <sI>]
+        self.tidx.append(tidx) ### [<sep>, <t1>, ..., <tJ>]
+        self.link.append(link) ### sequence of links (may be empty)
+        self.parallel.append(not is_uneven)
 
-        if len(tidx) > 0:
-            tidx.insert(0,idx_sep)
-            self.ltgt.append(len(tidx)) #ltgt is the position of tJ
-            self.tidx.append(tidx) ### [<sep>, <t1>, ..., <tJ>]
-
-        pairs = []
-        for st in ali:
-            s,t = map(int, st.split('-'))
-            if do_swap:
-                pairs.append([t,s])
-            else:
-                pairs.append([s,t])
-        self.link.append(pairs)
-
-    def pad(self,p_uneven=0.0):
+    def pad(self):
         #convert self.lsrc/self.ltgt into np array
         self.lsrc = np.array(self.lsrc)
+        self.ltgt = np.array(self.ltgt)
+        #compute maxlsrc/maxltgt
         self.maxlsrc = np.max(self.lsrc)
-        if len(self.tidx) > 0:
-            self.ltgt = np.array(self.ltgt)
-            self.maxltgt = np.max(self.ltgt)
-        bs = len(self.indexs)
+        self.maxltgt = np.max(self.ltgt)
         ### pad source/target sentences
-#        logging.info('building [{},{}] and [{},{}]'.format(bs,self.maxlsrc,bs,self.maxltgt))
-        for b in range(bs):
+        for b in range(len(self.indexs)):
             self.sidx[b] += [idx_pad]*(self.maxlsrc-len(self.sidx[b])) 
-            if len(self.tidx) > 0:
-#                logging.info('\tadditional {}'.format(self.maxltgt-len(self.tidx[b])))
-                self.tidx[b] += [idx_pad]*(self.maxltgt-len(self.tidx[b]))
+            self.tidx[b] += [idx_pad]*(self.maxltgt-len(self.tidx[b]))
         ### build alignment matrix
-        if len(self.link) > 0:
-            self.ali = np.full((bs, self.maxlsrc-1, self.maxltgt-1), 1.0) #initially all pairs are not aligned (divergent), do not consider <cls>, <sep>
-            for b in range(bs):
-                for (s, t) in self.link[b]:
-                    self.ali[b,s,t] = -1.0 #is aligned
-        #convert self.sidx/self.tidx/self.ali into np array
+        self.matrix = np.zeros((len(self.indexs), self.maxlsrc-1, self.maxltgt-1), dtype=bool) #initially all pairs are not aligned (False), do not considers <cls>, <sep>
+        for b in range(len(self.link)):
+            for (s, t) in self.link[b]:
+                self.matrix[b,s,t] = True
+        #convert self.sidx/self.tidx/self.parallel into np array
         self.sidx = np.array(self.sidx)
-        if len(self.tidx) > 0:
-            self.tidx = np.array(self.tidx)
-        if len(self.link) > 0:
-            self.ali = np.array(self.ali)
+        self.tidx = np.array(self.tidx)
+        self.parallel = np.array(self.parallel)
 
-        self.is_uneven = [False] * len(self.indexs)
-        if p_uneven > 0.0:
-            self.n_uneven += 1
-            for b in range(1,len(self.indexs)):
-                if random.random() < p_uneven:
-                    self.is_uneven[b] = True
-                    self.ltgt[b] = self.ltgt[b-1]
-                    self.tidx[b] = self.tidx[b-1]
-                    self.tgt[b] = self.tgt[b-1]
-                    self.link[b] = [] 
-                    self.ali[b,:,:] = 1.0 ### all pairs unaligned
 
     def dump(self):
         print('indexs')
         print(self.indexs)
-        print('is_uneven')
-        print(self.is_uneven)
         print('[bs, ls, lt]')
         print('[{}, {}, {}]'.format(len(self.sidx),self.maxlsrc,self.maxltgt))
         print('src')
@@ -247,8 +200,10 @@ class batch():
         print(self.tidx)
         print('link')
         print(self.link)
-        print('ali (np)')
-        print(self.ali)
+        print('matrix (np)')
+        print(self.matrix)
+        print('parallel (np)')
+        print(self.parallel)
 
 
 ####################################################################
@@ -257,14 +212,16 @@ class batch():
 
 class Dataset():
 
-    def __init__(self, token, vocab, max_length=0, is_infinite=False, max_sentences_per_file=0):
+    def __init__(self, token, vocab, max_length=0, batch_size=32, p_swap=0.0, p_uneven=0.0, is_infinite=False, max_sentences_per_file=0):
         self.token = token
         self.vocab = vocab
         self.max_length = max_length
         self.is_infinite = is_infinite
+        self.batch_size = batch_size
+        self.p_swap = p_swap
+        self.p_uneven = p_uneven
         self.max_sentences_per_file = max_sentences_per_file
-        self.idx = []
-        self.snt = [] #only to debug
+        self.data = []
 
     def tokenize(self,l):
         if self.token is not None:
@@ -291,13 +248,15 @@ class Dataset():
         else: 
             fa = io.open(fali, 'r', encoding='utf-8', newline='\n', errors='ignore')
 
-
         ntoks_src = 0
         nunks_src = 0
         ntoks_tgt = 0
         nunks_tgt = 0
         nsent = 0
         nfilt = 0
+        n_uneven = 0
+        n_swap = 0
+        prev_lt = ""
         for ls, lt, la in zip(fs,ft,fa):
             if fsrc.endswith('.gz'): 
                 ls = ls.decode('utf8')
@@ -305,28 +264,59 @@ class Dataset():
                 lt = lt.decode('utf8')
             if fali.endswith('.gz'): 
                 la = la.decode('utf8')
-            ssnt = self.tokenize(ls)
+
+            is_uneven = False
+            if self.p_uneven > 0.0 and random.random() < self.p_uneven:
+                if len(prev_lt):
+                    curr_lt = lt
+                    lt = prev_lt
+                    prev_lt = curr_lt
+                    is_uneven = True
+                else:
+                    prev_lt = lt
+
+            is_swap = False
+            if self.p_swap > 0.0 and random.random() < self.p_swap:
+                ssnt = self.tokenize(lt)
+                tsnt = self.tokenize(ls)
+                is_swap = True
+            else:
+                ssnt = self.tokenize(ls)
+                tsnt = self.tokenize(lt)
             sidx = self.tok2idx(ssnt)
-            tsnt = self.tokenize(lt)
             tidx = self.tok2idx(tsnt)
+            link = self.get_links(la,is_swap,is_uneven) #alig = la.strip(' \n').split()
+            ### filtering
             if self.max_length > 0 and (len(sidx) > self.max_length or len(tidx) > self.max_length):
                 nfilt += 1
                 continue
-            ### align
-            alig = la.strip(' \n').split()
+
             nsent += 1
             nunks_src += sidx.count(idx_unk)
             nunks_tgt += tidx.count(idx_unk) 
             ntoks_src += len(sidx)
             ntoks_tgt += len(tidx)
-            self.idx.append([sidx,tidx,alig])
-            self.snt.append([ssnt,tsnt])
-
+            if is_uneven:
+                n_uneven += 1
+            if is_swap:
+                n_swap += 1
+            self.data.append([ssnt,tsnt,sidx,tidx,link,is_swap,is_uneven])
             if self.max_sentences_per_file > 0 and nsent >= self.max_sentences_per_file: 
                 break
 
-        logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt,fali))
+        logging.info('found {} sentences ({} filtered, {} uneven, {} swap), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{},{}]'.format(nsent,nfilt,n_uneven,n_swap,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt,fali))
 
+
+    def get_links(self, la, is_swap, is_uneven):
+        link = []
+        if not is_uneven:
+            for s_t in la.strip(' \n').split():
+                (s,t) = map(int, s_t.split('-'))
+                if is_swap:
+                    link.append([t,s])
+                else:
+                    link.append([s,t])
+        return link
 
     def add2files(self, fsrc, ftgt):
         if fsrc.endswith('.gz'): 
@@ -363,6 +353,7 @@ class Dataset():
                 tsnt = lt.strip(' \n').split()
             ### tgt vocab
             tidx = [self.vocab[t] for t in tsnt]
+            ### filtering
             if self.max_length > 0 and (len(sidx) > self.max_length or len(tidx) > self.max_length):
                 nfilt += 1
                 continue
@@ -371,82 +362,36 @@ class Dataset():
             nunks_tgt += tidx.count(idx_unk) 
             ntoks_src += len(sidx)
             ntoks_tgt += len(tidx)
-            self.idx.append([sidx,tidx])
-            self.snt.append([ssnt,tsnt])
+            self.data.append([ssnt,tsnt,sidx,tidx,[],False,False])
         logging.info('found {} sentences ({} filtered), {}/{} tokens ({:.3f}/{:.3f} %OOVs) in files: [{},{}]'.format(nsent,nfilt,ntoks_src,ntoks_tgt,100.0*nunks_src/ntoks_src,100.0*nunks_tgt/ntoks_tgt,fsrc,ftgt))
 
 
-    def add1file(self, fsrc):
-        if fsrc.endswith('.gz'): 
-            fs = gzip.open(fsrc, 'rb')
-        else: 
-            fs = io.open(fsrc, 'r', encoding='utf-8', newline='\n', errors='ignore')
-
-        ntoks = 0
-        nunks = 0
-        nsent = 0
-        nfilt = 0
-        for ls in fs:
-            if fsrc.endswith('.gz'): 
-                ls = ls.decode('utf8')
-            ### src tokenize
-            if self.token is not None:
-                ssnt = self.token.tokenize(ls.strip(' \n'))
-            else:
-                ssnt = ls.strip(' \n').split()
-            ### src vocab
-            sidx = [self.vocab[s] for s in ssnt]
-            if self.max_length > 0 and len(sidx) > self.max_length:
-                nfilt += 1
-                continue
-            nsent += 1
-            nunks += sidx.count(idx_unk) 
-            ntoks += len(sidx)
-            self.idx.append([sidx])
-            self.snt.append([ssnt])
-        logging.info('found {} sentences ({} filtered), {} tokens ({:.3f}% OOVs) in files: [{}]'.format(nsent,nfilt,ntoks,100.0*nunks/ntoks,fsrc))
-
-
-    def build_batches(self, batch_size, p_swap=0.0, p_uneven=0.0):
-        n_swap = 0
-        n_uneven = 0
+    def build_batches(self):
         self.batches = []
-        self.batch_size = batch_size
-        if len(self.idx) == 0:
+        if len(self.data) == 0:
             logging.error('no examples available to build batches')
             sys.exit()
 
-        if len(self.idx[0]) > 1:
-            logging.debug('sorting data by source/target sentence length to minimize padding over {} examples'.format(len(self.idx)))
-            data_len1 = [len(x[0]) for x in self.idx]
-            data_len2 = [len(x[1]) for x in self.idx]
-            indexs = np.lexsort((data_len1,data_len2))
-        else:
-            logging.debug('sorting data by source sentence length to minimize padding over {} examples'.format(len(self.idx)))
-            data_len1 = [len(x[0]) for x in self.idx]
-            indexs = np.argsort(data_len1)
+        logging.debug('sorting data by source/target sentence length to minimize padding over {} examples'.format(len(self.data)))
+        data_len1 = [len(x[0]) for x in self.data]
+        data_len2 = [len(x[1]) for x in self.data]
+        indexs = np.lexsort((data_len1,data_len2))
 
-        currbatch = batch(p_swap) 
+        currbatch = batch() 
         for index in indexs:
-            currbatch.add(index,self.idx[index],self.snt[index])
+            currbatch.add(index,self.data[index])
 
-            if len(currbatch) >= self.batch_size: ### record new batch
-                currbatch.pad(p_uneven)
-                self.batches.append(deepcopy(currbatch))
-                n_swap += currbatch.n_swap
-                n_uneven += currbatch.n_uneven
-                currbatch = batch(p_swap)
+            if len(currbatch) >= self.batch_size: ### batch filled
+                currbatch.pad()
+                self.batches.append(currbatch)
+                currbatch = batch()
 
         if len(currbatch): ### record last batch
-            currbatch.pad(p_uneven)
-            self.batches.append(deepcopy(currbatch))
-            n_swap += currbatch.n_swap
-            n_uneven += currbatch.n_uneven
+            currbatch.pad()
+            self.batches.append(currbatch)
 
-        logging.info('built {} batches n_swap={} n_uneven={}'.format(len(self.batches),n_swap,n_uneven))
-
-    def __len__(self):
-        return len(self.idx)
+        logging.info('built {} batches'.format(len(self.batches)))
+        del self.data
 
 
     def __iter__(self):

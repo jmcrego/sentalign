@@ -118,18 +118,18 @@ class Trainer():
         self.computeloss_cos = ComputeLossCOS(self.crit_cos, self.step_cos, self.optimizer)
 
         logging.info('read Train data')
-        self.data_train = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=True,max_sentences_per_file=self.max_sentences_per_file)
+        self.data_train = Dataset(None,self.vocab,max_length=self.max_length,batch_size=self.batch_size,p_swap=self.swap_bitext,p_uneven=self.uneven_bitext,is_infinite=True,max_sentences_per_file=self.max_sentences_per_file)
         for (fs,ft,fa) in opts.train['train']:
             self.data_train.add3files(fs,ft,fa)
         logging.info('build Train batches')
-        self.data_train.build_batches(self.batch_size,self.swap_bitext,self.uneven_bitext)
+        self.data_train.build_batches()
 
         logging.info('read Valid data')
-        self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,is_infinite=False,max_sentences_per_file=0)
+        self.data_valid = Dataset(None,self.vocab,max_length=self.max_length,batch_size=self.batch_size,p_swap=self.swap_bitext,p_uneven=self.uneven_bitext,is_infinite=False,max_sentences_per_file=0)
         for (fs,ft,fa) in opts.train['valid']:
             self.data_valid.add3files(fs,ft,fa)
         logging.info('build Valid batches')
-        self.data_valid.build_batches(self.batch_size,self.swap_bitext,self.uneven_bitext)
+        self.data_valid.build_batches()
 
 
     def __call__(self):
@@ -320,13 +320,13 @@ def format_batch(vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None
 
 
     if step_ali is not None and step_ali['w'] > 0.0:
-        st_matrix = torch.as_tensor(batch.ali)
+        st_matrix = -1.0 * ((torch.as_tensor(batch.matrix) * 2.0) - 1.0) #-1.0 for aligned pairs; 1.0 for not aligned
         #matrix  [bs,ls,lt] the alignment between src/tgt [reference for ALI]
     else:
         st_matrix = []
 
     if step_cos is not None and step_cos['w'] > 0.0:
-        st_uneven = (torch.as_tensor(batch.is_uneven,dtype=torch.float64) * 2.0) - 1.0 #-1.0 parallel; 1.0 uneven
+        st_uneven = (torch.as_tensor(batch.parallel,dtype=torch.float64) * 2.0) - 1.0 #-1.0 parallel; 1.0 uneven
             #uneven  [bs]
     else:
         st_uneven = []

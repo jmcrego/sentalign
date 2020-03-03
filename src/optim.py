@@ -160,7 +160,7 @@ class ComputeLossALI:
         #t_mask [bs, lt]
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
-            logging.info('nan detected in alignment matrix (DP_st)')
+            logging.warning('nan detected in alignment matrix (DP_st)')
         loss, nok, npred = self.criterion(DP_st,y,s_mask,t_mask)
         return loss, nok, npred #sum of word-pair loss over batch
 
@@ -176,18 +176,18 @@ class ComputeLossCOS:
         #ls is max leng of source words
         assert len(y.shape) == 1 #[bs] uneven 1.0 if uneven, -1.0 if parallel
         assert len(h_st.shape) == 3 #[bs, ls+lt+2, es] embeddings of source and target words (<cls> s1 s2 ... sI <pad>* <sep> t1 t2 ... tJ <pad>*)
-        assert len(st_mask) == 2 #[bs,ls+lt+2]
+        assert len(st_mask.shape) == 2 #[bs,ls+lt+2]
         assert st_mask.shape[0:2] == h_st.shape[0:2]
         s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, ls, pooling=self.pooling, norm_st=self.norm)
-        #s [bs, es]
-        #t [bs, es]
-        #hs [bs, ls, es]
-        #ht [bs, lt, es]
-        #s_mask [bs, ls]
-        #t_mask [bs, lt]
+        assert len(s.shape) == 2 # [bs, es]
+        assert len(t.shape) == 2 #t [bs, es]
+        assert len(hs.shape) == 3 #hs [bs, ls, es]
+        assert len(ht.shape) == 3 #ht [bs, lt, es]
+        assert len(s_mask.shape) == 2 #s_mask [bs, ls]
+        assert len(t_mask.shape) == 2 #t_mask [bs, lt]
         DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
         if torch.isnan(DP).any():
-            logging.info('nan detected in unevent vector (DP)')
+            logging.warning('nan detected in unevent vector (DP)')
         loss, nok, npred = self.criterion(DP, y) 
         return loss, nok, npred #sum of sent loss over batch
 

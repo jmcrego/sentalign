@@ -1,14 +1,14 @@
 
 train:
   - [ './data/clean.ECB.en-fr.en.trn.tokc.gz',          './data/clean.ECB.en-fr.fr.trn.tokc.gz',          './data/clean.ECB.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.EMEA.en-fr.en.trn.tokc.gz',         './data/clean.EMEA.en-fr.fr.trn.tokc.gz',         './data/clean.EMEA.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.Europarl.en-fr.en.trn.tokc.gz',     './data/clean.Europarl.en-fr.fr.trn.tokc.gz',     './data/clean.Europarl.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.GNOME.en-fr.en.trn.tokc.gz',        './data/clean.GNOME.en-fr.fr.trn.tokc.gz',        './data/clean.GNOME.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.JRC-Acquis.en-fr.en.trn.tokc.gz',   './data/clean.JRC-Acquis.en-fr.fr.trn.tokc.gz',   './data/clean.JRC-Acquis.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.KDE4.en-fr.en.trn.tokc.gz',         './data/clean.KDE4.en-fr.fr.trn.tokc.gz',         './data/clean.KDE4.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.news-commentary-v14.en.trn.tokc.gz','./data/clean.news-commentary-v14.fr.trn.tokc.gz','./data/clean.news-commentary-v14.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.TED2013.en-fr.en.trn.tokc.gz',      './data/clean.TED2013.en-fr.fr.trn.tokc.gz',      './data/clean.TED2013.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
-  - [ './data/clean.Wikipedia.en-fr.en.trn.tokc.gz',    './data/clean.Wikipedia.en-fr.fr.trn.tokc.gz',    './data/clean.Wikipedia.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.EMEA.en-fr.en.trn.tokc.gz',         './data/clean.EMEA.en-fr.fr.trn.tokc.gz',         './data/clean.EMEA.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.Europarl.en-fr.en.trn.tokc.gz',     './data/clean.Europarl.en-fr.fr.trn.tokc.gz',     './data/clean.Europarl.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.GNOME.en-fr.en.trn.tokc.gz',        './data/clean.GNOME.en-fr.fr.trn.tokc.gz',        './data/clean.GNOME.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.JRC-Acquis.en-fr.en.trn.tokc.gz',   './data/clean.JRC-Acquis.en-fr.fr.trn.tokc.gz',   './data/clean.JRC-Acquis.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.KDE4.en-fr.en.trn.tokc.gz',         './data/clean.KDE4.en-fr.fr.trn.tokc.gz',         './data/clean.KDE4.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.news-commentary-v14.en.trn.tokc.gz','./data/clean.news-commentary-v14.fr.trn.tokc.gz','./data/clean.news-commentary-v14.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.TED2013.en-fr.en.trn.tokc.gz',      './data/clean.TED2013.en-fr.fr.trn.tokc.gz',      './data/clean.TED2013.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
+#  - [ './data/clean.Wikipedia.en-fr.en.trn.tokc.gz',    './data/clean.Wikipedia.en-fr.fr.trn.tokc.gz',    './data/clean.Wikipedia.en-fr.en.trn.tokc.en2fr.gdfa.gz' ]
 valid:
   - [ './data/clean.ECB.en-fr.en.val.tokc.gz',          './data/clean.ECB.en-fr.fr.val.tokc.gz',          './data/clean.ECB.en-fr.en.val.tokc.en2fr.gdfa.gz' ]
   - [ './data/clean.EMEA.en-fr.en.val.tokc.gz',         './data/clean.EMEA.en-fr.fr.val.tokc.gz',         './data/clean.EMEA.en-fr.en.val.tokc.en2fr.gdfa.gz' ]
@@ -21,15 +21,15 @@ valid:
   - [ './data/clean.Wikipedia.en-fr.en.val.tokc.gz',    './data/clean.Wikipedia.en-fr.fr.val.tokc.gz',    './data/clean.Wikipedia.en-fr.en.val.tokc.en2fr.gdfa.gz' ]
 max_length: 80
 max_sentences_per_file: 1000
-batch_size: 24
+batch_size: 2
 swap_bitext: 0.5
 uneven_bitext: 0.5
 steps:
-  mlm:  { w: 0.0, p_mask: 0.15, r_same: 0.1, r_rand: 0.1 }
-  ali:  { w: 1.0, norm: false, scale: 1.0 }
-  cos:  { w: 0.0, norm: false, pooling: mean } 
+  mlm:  { w: 1.0, p_mask: 0.15, r_same: 0.1, r_rand: 0.1 }
+  ali:  { w: 1.0, norm: false, scale: 0.01 }
+  cos:  { w: 1.0, norm: false, pooling: mean } 
 checkpoint_every_steps: 5000
 validation_every_steps: 5000
-report_every_steps: 100
+report_every_steps: 10
 keep_last_n: 10
 
