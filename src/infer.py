@@ -87,8 +87,8 @@ class Infer():
                     else:
                         print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
-                    print(self.model.encoder.layers[1].self_attn.attn[0, 4].data.shape)
-                    print(self.model.encoder.layers[1].self_attn.attn[0, 4].data)
+                    print(self.model.encoder.layers[1].self_attn.attn[0, 2].data.shape)
+                    print(self.model.encoder.layers[1].self_attn.attn[0, 2].data)
 
         logging.info('End testing')
 
