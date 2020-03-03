@@ -89,7 +89,7 @@ class Infer():
 
                     my_enc_layer=2
                     my_head = 6
-                    my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].data
+                    my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].numpy()
                     print(my_attn.shape)
                     print(my_attn)
 
