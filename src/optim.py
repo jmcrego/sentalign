@@ -158,9 +158,6 @@ class ComputeLossALI:
         #ht [bs, lt, es]
         #s_mask [bs, ls]
         #t_mask [bs, lt]
-        print('ht',hs)        
-        print('ht',ht)        
-        sys.exit()
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
             logging.error('nan detected in alignment matrix (DP_st)')
