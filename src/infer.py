@@ -91,7 +91,7 @@ class Infer():
                     my_head = 6
                     my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].cpu().detach().numpy()
                     print(my_attn.shape)
-                    print(list(my_attn))
+                    print(my_attn.tolist())
 
         logging.info('End testing')
 
