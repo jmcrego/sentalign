@@ -224,6 +224,7 @@ class Trainer():
                 loss += self.step_cos['w'] * loss_cos
 
         ds.add('loss',loss)
+#?        torch.cuda.empty_cache()
         return True, loss, loss_mlm, loss_ali, loss_cos
 
 
