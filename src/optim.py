@@ -160,8 +160,9 @@ class ComputeLossALI:
         #t_mask [bs, lt]
         DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) * self.scale #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl] (cosine similarity after normalization)
         if torch.isnan(DP_st).any():
-            logging.warning('nan detected in alignment matrix (DP_st)')
-            logging.warning('{}'.format(DP_st))
+            logging.error('nan detected in alignment matrix (DP_st)')
+            logging.error('{}'.format(DP_st))
+            sys.exit()
         loss, nok, npred = self.criterion(DP_st,y,s_mask,t_mask)
         return loss, nok, npred #sum of word-pair loss over batch
 
@@ -189,8 +190,9 @@ class ComputeLossCOS:
         assert len(t_mask.shape) == 2 #t_mask [bs, lt]
         DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) * self.scale #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
         if torch.isnan(DP).any():
-            logging.warning('nan detected in unevent vector (DP)')
-            logging.warning('{}'.format(DP))
+            logging.error('nan detected in unevent vector (DP)')
+            logging.error('{}'.format(DP))
+            sys.exit()
         loss, nok, npred = self.criterion(DP, y) 
         return loss, nok, npred #sum of sent loss over batch
 
