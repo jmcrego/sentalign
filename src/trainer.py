@@ -327,7 +327,7 @@ def format_batch(vocab, cuda, batch, step_mlm=None, step_ali=None, step_cos=None
 
     if step_cos is not None and step_cos['w'] > 0.0:
         st_uneven = (torch.as_tensor(batch.parallel) * -2.0) + 1.0 #-1.0 parallel; 1.0 uneven
-            #uneven  [bs]
+        #uneven  [bs]
     else:
         st_uneven = []
 
