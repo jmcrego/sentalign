@@ -168,6 +168,7 @@ class ComputeLossCOS:
     def __init__(self, criterion, step_cos, opt=None):
         self.criterion = criterion
         self.pooling = step_cos['pooling']
+        self.scale = step_cos['scale']
         self.norm = step_cos['norm']
         self.opt = opt
         logging.info('built ComputeLossCOS pooling={} norm={}'.format(self.pooling, self.norm))
@@ -185,7 +186,7 @@ class ComputeLossCOS:
         assert len(ht.shape) == 3 #ht [bs, lt, es]
         assert len(s_mask.shape) == 2 #s_mask [bs, ls]
         assert len(t_mask.shape) == 2 #t_mask [bs, lt]
-        DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
+        DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(2).squeeze(1) * self.scale #[bs, 1, es] X [bs, es, 1] = [bs, 1, 1] => [bs]
         if torch.isnan(DP).any():
             logging.warning('nan detected in unevent vector (DP)')
         loss, nok, npred = self.criterion(DP, y) 
