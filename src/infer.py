@@ -86,7 +86,7 @@ class Infer():
                             crit_align = crit_align.cuda()
                             y = y.cuda()
                         loss, nok, npred = crit_align(DP_st,y,s_mask,t_mask)
-                        print(loss,nok,npred)
+                        print(loss.cpu().detach(),nok.cpu().detach(),npred.cpu().detach())
 
                 ### output
                 for b in range(len(DP)):
