@@ -80,8 +80,9 @@ class Infer():
                 if self.matrix:
                     DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
                 if len(files) == 3: ### contain ref alignments
+                    st_matrix = (torch.as_tensor(batch.matrix) * -2.0) + 1.0 
                     print(st_matrix)
-
+                    
                 ### output
                 for b in range(len(DP)):
                     print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
