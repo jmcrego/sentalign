@@ -197,6 +197,10 @@ class Trainer():
             #st_mlm, st_mlm_ref, st_mask
             #npred_mlm = (st_mlm_ref != self.vocab.idx_pad).sum() ### counts number of elements not <pad> (to be predicted)
             h_st = self.model.forward(st_mlm, st_mask.unsqueeze(-2))
+            if torch.isnan(h_st).any():
+                logging.error('nan detected in model forward (h_st) [MLM]')
+                logging.error('{}'.format(DP_st))
+                sys.exit()
             batch_loss_mlm, nok_mlm, npred_mlm = self.computeloss_mlm(h_st, st_mlm_ref)
             if npred_mlm == 0: 
                 logging.info('batch with nothing to predict')
@@ -208,6 +212,10 @@ class Trainer():
         if self.step_ali['w'] > 0.0 or self.step_cos['w'] > 0.0:
             #st, st_mask
             h_st = self.model.forward(st, st_mask.unsqueeze(-2))
+            if torch.isnan(h_st).any():
+                logging.error('nan detected in model forward (h_st) [ALI/COS]')
+                logging.error('{}'.format(DP_st))
+                sys.exit()
             if self.step_ali['w'] > 0.0: ### (ALI)
                 #st_matrix
                 #npred_ali = np.dot(batch.lsrc,batch.ltgt)
