@@ -83,8 +83,8 @@ class Infer():
                 ### output
                 for b in range(len(DP)):
                     if self.matrix:
-                        print(index)
-                        print_matrix(DP_st[b], batch.src[b], batch.tgt[b], DP[b], batch.indexs[b])
+                        print(batch.indexs[b])
+                        print_matrix(DP_st[b], batch.src[b], batch.tgt[b], DP[b])
                     else:
                         print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
@@ -93,13 +93,13 @@ class Infer():
                     my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].cpu().detach().numpy()
                     #print(my_attn.shape)
                     #print(my_attn.tolist())
-                    print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(my_enc_layer,my_head), batch.indexs[b])
+                    print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(my_enc_layer,my_head))
 
 
         logging.info('End testing')
 
 
-def print_matrix(DP_st, src, tgt, DP, index):
+def print_matrix(DP_st, src, tgt, DP):
     align = []
     if isinstance(DP,int):
         align.append(['{:.6f}'.format(DP)] + src)
