@@ -28,7 +28,7 @@ class Argv():
    -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default max)
    -batch_size INT : batch size use on inference (default 32)
    -matrix         : show laignment matrix
-   -lh     INT,INT : show attention layer l head h 
+   -lh     INT,INT : show attention matrix of layer l head h 
 
  Average:
    -average        : average models in DIR
