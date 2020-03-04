@@ -54,7 +54,7 @@ class Infile:
         return len(self.txt)>0
 
 
-def results(D,I,k,db,query,query_is_db,verbose):
+def results(D,I,k,db,query,query_is_db):
     #I[i,j] contains for each sentence i in query, the index of the j-th closest sentence in db
     #D[i,j] contains the corresponding score
     n_ok = [0.0] * k
@@ -90,10 +90,10 @@ class IndexFaiss:
         logging.info("read {} vectors".format(self.index.ntotal))
 
 
-    def Query(self,file,d,k,file_str,query_is_db,verbose):
+    def Query(self,file,d,k,file_str,query_is_db):
         query = Infile(file, d, norm=True, file_str=file_str)
         D, I = self.index.search(query.vec, k)
-        results(D,I,k,self.db,query,query_is_db,verbose)
+        results(D,I,k,self.db,query,query_is_db)
 
 '''
 class Index:
@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
 
     if fquery is not None:
-        indexdb.Query(fquery,d,k,fquery_str,query_is_db,verbose)
+        indexdb.Query(fquery,d,k,fquery_str,query_is_db)
 
 
 
