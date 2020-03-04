@@ -199,7 +199,7 @@ class Trainer():
             h_st = self.model.forward(st_mlm, st_mask.unsqueeze(-2))
             if torch.isnan(h_st).any():
                 logging.error('nan detected in model forward (h_st) [MLM]')
-                logging.error('{}'.format(DP_st))
+                logging.error('{}'.format(h_st))
                 sys.exit()
             batch_loss_mlm, nok_mlm, npred_mlm = self.computeloss_mlm(h_st, st_mlm_ref)
             if npred_mlm == 0: 
@@ -214,7 +214,7 @@ class Trainer():
             h_st = self.model.forward(st, st_mask.unsqueeze(-2))
             if torch.isnan(h_st).any():
                 logging.error('nan detected in model forward (h_st) [ALI/COS]')
-                logging.error('{}'.format(DP_st))
+                logging.error('{}'.format(h_st))
                 sys.exit()
             if self.step_ali['w'] > 0.0: ### (ALI)
                 #st_matrix
