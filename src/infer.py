@@ -95,15 +95,11 @@ class Infer():
                         my_attn = self.model.encoder.layers[self.layer].self_attn.attn[0, self.head].cpu().detach().numpy()
                         print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(self.layer,self.head))
                     if len(files) == 3:
-                        DP_st_b = DP_st[b].unsqueeze(0)
-                        y_b = y[b].unsqueeze(0)
-                        s_mask_b = s_mask[b].unsqueeze(0)
-                        t_mask_b = t_mask[b].unsqueeze(0)
-                        loss, nok, npred = crit_align(DP_st_b,y_b,s_mask_b,t_mask_b)
+                        loss, nok, npred = crit_align(DP_st[b].unsqueeze(0),y[b].unsqueeze(0),s_mask[b].unsqueeze(0),t_mask[b].unsqueeze(0))
                         loss = loss.cpu().detach().numpy()
-                        nok = nok.cpu().detach().numpy()
                         npred = npred.cpu().detach().numpy()
-                        print("loss={:.4f} Acc={:.4f}/{}".format(loss,1.0*nok/npred,npred))
+                        acc = 1.0 * nok.cpu().detach().numpy() / npred
+                        print("Acc={:.4f} ({}) loss={:.4f}".format(acc,npred,loss))
 
 
 
