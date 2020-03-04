@@ -85,11 +85,6 @@ class Infer():
                         if self.cuda:
                             crit_align = crit_align.cuda()
                             y = y.cuda()
-                        loss, nok, npred = crit_align(DP_st,y,s_mask,t_mask)
-                        loss = loss.cpu().detach().numpy()
-                        nok = nok.cpu().detach().numpy()
-                        npred = npred.cpu().detach().numpy()
-                        print("loss={:.4f} Acc={:.4f}/{}".format(loss,1.0*nok/npred,npred))
 
                 ### output
                 for b in range(len(DP)):
@@ -99,6 +94,19 @@ class Infer():
                     if self.layer is not None and self.head is not None:
                         my_attn = self.model.encoder.layers[self.layer].self_attn.attn[0, self.head].cpu().detach().numpy()
                         print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(self.layer,self.head))
+                    if len(files) == 3:
+                        DP_st_b = DP_st[b].unsqueeze(0)
+                        y_b = y[b].unsqueeze(0)
+                        s_mask = s_mask[b].unsqueeze(0)
+                        t_mask = t_mask[b].unsqueeze(0)
+                        loss, nok, npred = crit_align(DP_st_b,y_b,s_mask_b,t_mask_b)
+                        loss = loss.cpu().detach().numpy()
+                        nok = nok.cpu().detach().numpy()
+                        npred = npred.cpu().detach().numpy()
+                        print("loss={:.4f} Acc={:.4f}/{}".format(loss,1.0*nok/npred,npred))
+
+
+
 
 
         logging.info('End testing')
