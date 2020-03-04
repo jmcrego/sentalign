@@ -40,6 +40,8 @@ class Infer():
         self.batch_size = opts.batch_size
         self.pooling = opts.pooling
         self.matrix = opts.matrix
+        self.layer = opts.layer
+        self.head = opts.head
         self.token = None
 #        self.token = OpenNMTTokenizer(**opts.cfg['token'])
 
@@ -88,12 +90,9 @@ class Infer():
                     else:
                         print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
-                    my_enc_layer=2
-                    my_head = 7
-                    my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].cpu().detach().numpy()
-                    #print(my_attn.shape)
-                    #print(my_attn.tolist())
-                    print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(my_enc_layer,my_head))
+                    if self.layer is not None and self.head is not None:
+                        my_attn = self.model.encoder.layers[self.layer].self_attn.attn[0, self.head].cpu().detach().numpy()
+                        print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(self.layer,self.head))
 
 
         logging.info('End testing')

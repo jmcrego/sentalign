@@ -28,6 +28,7 @@ class Argv():
    -pooling STRING : inference pooling method, use 'max', 'mean' or 'cls' (default max)
    -batch_size INT : batch size use on inference (default 32)
    -matrix         : show laignment matrix
+   -lh     INT,INT : show attention layer l head h 
 
  Average:
    -average        : average models in DIR
@@ -57,6 +58,8 @@ class Argv():
         self.pooling = 'max'
         self.matrix = False
         self.batch_size = 32
+        self.layer = None
+        self.head = None
         while len(argv):
             tok = argv.pop(0)
             if   (tok=="-config"   and len(argv)): self.fcfg = argv.pop(0)
@@ -67,6 +70,7 @@ class Argv():
             elif (tok=="-infer"    and len(argv)): self.finfer = argv.pop(0)
             elif (tok=="-pooling"  and len(argv)): self.pooling = argv.pop(0)
             elif (tok=="-batch_size" and len(argv)): self.batch_size = int(argv.pop(0))
+            elif (tok=="-lh"       and len(argv)): (self.layer,self.head) = map(int, argv.pop(0).split(','))
             elif (tok=="-matrix"):                 self.matrix = True
             elif (tok=="-seed"     and len(argv)): self.seed = int(argv.pop(0))
             elif (tok=="-h"):
