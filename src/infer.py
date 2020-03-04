@@ -96,9 +96,10 @@ class Infer():
                         print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(self.layer,self.head))
                     if len(files) == 3:
                         loss, nok, npred = crit_align(DP_st[b].unsqueeze(0),y[b].unsqueeze(0),s_mask[b].unsqueeze(0),t_mask[b].unsqueeze(0))
+                        acc = 1.0 * nok / npred
+                        acc = acc.cpu().detach().numpy()
                         loss = loss.cpu().detach().numpy()
                         npred = npred.cpu().detach().numpy()
-                        acc = 1.0 * nok.cpu().detach().numpy() / npred
                         print("Acc={:.4f} ({}) loss={:.4f}".format(acc,npred,loss))
 
 
