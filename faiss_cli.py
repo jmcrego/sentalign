@@ -54,12 +54,14 @@ class Infile:
         return len(self.txt)>0
 
 
-def results(D,I,k,db,query,verbose):
+def results(D,I,k,db,query,query_is_db,verbose):
+    #I[i,j] contains for each sentence i in query, the index of the j-th closest sentence in db
+    #D[i,j] contains the corresponding score
     n_ok = [0.0] * k
-    for i in range(len(I)):
-        ### Accuracy
+    for i in range(len(I)): #for each sentence in query
+        ### to compute accuracy in case query is db
         for j in range(k):
-            if i in I[i,0:j+1]:
+            if i in I[i,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
                 n_ok[j] += 1.0
         ### output
         out = []
@@ -68,17 +70,22 @@ def results(D,I,k,db,query,verbose):
             if query.txts():
                 out[-1] += " {}".format(query.txt[i])
             for j in range(len(I[i])):
+                if query_is_db and i == I[i,j]:
+                    continue
                 out.append("{}:{:.4f}".format(I[i,j],D[i,j]))
                 if db.txts():
                     out[-1] += " {}".format(db.txt[I[i,j]])
             print('\n\t'.join(out))
         else:
             out.append(str(i))
-            out.append("{} {}".format(I[i],D[i]))
+            out.append("{} {}".format(I[i],D[i])) 
             if query.txts():
                 out.append(query.txt[i])
             if db.txts():
-                out.append(db.txt[I[i,0]])
+                for j in range(len(I[i])):
+                    if query_is_db and i == I[i,j]:
+                        continue
+                    out.append(db.txt[I[i,j]])
             print('\t'.join(out))
 
     n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
