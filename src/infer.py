@@ -73,7 +73,8 @@ class Infer():
         with torch.no_grad():
             self.model.eval() ### avoids dropout
             for batch in self.data_test:
-                st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch)
+                st, _, _, st_mask, _, _ = format_batch(self.vocab, self.cuda, batch)
+#                st, st_mlm, st_mlm_ref, st_mask, st_matrix, st_uneven = format_batch(self.vocab, self.cuda, batch)
                 h_st = self.model.forward(st, st_mask.unsqueeze(-2))
                 s, t, hs, ht, s_mask, t_mask = sentence_embedding(h_st, st_mask, batch.maxlsrc-1, self.pooling, norm_st=True, norm_h=True)
                 DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(-1).squeeze(-1).cpu().detach().numpy() #[bs, 1, 1] => [bs]
@@ -82,7 +83,7 @@ class Infer():
                 if len(files) == 3: ### contain ref alignments
                     st_matrix = (torch.as_tensor(batch.matrix) * -2.0) + 1.0 
                     print(st_matrix)
-                    
+
                 ### output
                 for b in range(len(DP)):
                     print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
