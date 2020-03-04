@@ -65,28 +65,15 @@ def results(D,I,k,db,query,query_is_db,verbose):
                 n_ok[j] += 1.0
         ### output
         out = []
-        if verbose:
-            out.append(str(i))
-            if query.txts():
-                out[-1] += " {}".format(query.txt[i])
-            for j in range(len(I[i])):
-                print("i={} j={} I[i,j]={}".format(i,j,I[i,j]))
-                if query_is_db and i == I[i,j]:
-                    continue
-                out.append("{}:{:.4f}".format(I[i,j],D[i,j]))
-                if db.txts():
-                    out[-1] += " {}".format(db.txt[I[i,j]])
-            print('\n\t'.join(out))
-        else:
-            out.append(str(i))
-            out.append("{} {}".format(I[i],D[i])) 
-            if query.txts():
-                out.append(query.txt[i])
+        out.append(str(i))
+        if query.txts():
+            out.append(query.txt[i])
+        for j in range(len(I[i])):
+            if query_is_db and i == I[i,j]: ### skip this
+                continue
+            out.append("{}:{:.9f}".format(I[i,j],D[i,j]))
             if db.txts():
-                for j in range(len(I[i])):
-                    if query_is_db and i == I[i,j]:
-                        continue
-                    out.append(db.txt[I[i,j]])
+                out.append(db.txt[I[i,j]])
             print('\t'.join(out))
 
     n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
