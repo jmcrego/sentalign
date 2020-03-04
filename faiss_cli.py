@@ -95,6 +95,7 @@ def results(D,I,k,db,query,query_is_db,verbose):
 class IndexFaiss:
 
     def __init__(self, file, d, file_str=None):
+
         self.db = Infile(file, d, norm=True, file_str=file_str)
         self.index = faiss.IndexFlatIP(d) #inner product (needs L2 normalization over db and query vectors)
         self.index.add(self.db.vec) # add all normalized vectors to the index
@@ -184,7 +185,7 @@ if __name__ == '__main__':
 
 
     if fquery is not None:
-        indexdb.Query(fquery,d,k,fquery_str,verbose)
+        indexdb.Query(fquery,d,k,fquery_str,query_is_db,verbose)
 
 
 
