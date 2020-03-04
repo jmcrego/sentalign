@@ -130,15 +130,17 @@ if __name__ == '__main__':
     fquery_str = None
     d = 512
     k = 1
+    query_is_db = False
     verbose = False
     name = sys.argv.pop(0)
-    usage = '''usage: {} -db FILE -query FILE [-db_str FILE] [-query_str FILE] [-d INT] [-k INT] [-v]
+    usage = '''usage: {} -db FILE -query FILE [-db_str FILE] [-query_str FILE] [-query_is_db] [-d INT] [-k INT] [-v]
     -db        FILE : file to index 
     -db_str    FILE : file to index 
     -query     FILE : file with queries
     -query_str FILE : file with queries
     -d          INT : vector size (default 512)
     -k          INT : k-best to retrieve (default 1)
+    -query_is_db    : do not consider matchs with query_id == db_id
     -v              : verbose output (default False)
     -h              : this help
 '''.format(name)
