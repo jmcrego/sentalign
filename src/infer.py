@@ -89,7 +89,7 @@ class Infer():
                         print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
 
                     my_enc_layer=2
-                    my_head = 8
+                    my_head = 7
                     my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].cpu().detach().numpy()
                     #print(my_attn.shape)
                     #print(my_attn.tolist())
