@@ -102,10 +102,10 @@ class IndexFaiss:
         logging.info("read {} vectors".format(self.index.ntotal))
 
 
-    def Query(self,file,d,k,file_str,verbose):
+    def Query(self,file,d,k,file_str,query_is_db,verbose):
         query = Infile(file, d, norm=True, file_str=file_str)
         D, I = self.index.search(query.vec, k)
-        results(D,I,k,self.db,query,verbose)
+        results(D,I,k,self.db,query,query_is_db,verbose)
 
 '''
 class Index:
