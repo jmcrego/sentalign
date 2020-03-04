@@ -92,6 +92,8 @@ class Infer():
                     my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].cpu().detach().numpy()
                     print(my_attn.shape)
                     print(my_attn.tolist())
+                    print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch_tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch_tgt[b], DP[b], batch.indexs[b])
+
 
         logging.info('End testing')
 
