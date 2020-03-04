@@ -90,8 +90,8 @@ class Infer():
                     my_enc_layer=2
                     my_head = 4
                     my_attn = self.model.encoder.layers[my_enc_layer].self_attn.attn[0, my_head].cpu().detach().numpy()
-                    print(my_attn.shape)
-                    print(my_attn.tolist())
+                    #print(my_attn.shape)
+                    #print(my_attn.tolist())
                     print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(my_enc_layer,my_head), batch.indexs[b])
 
 
