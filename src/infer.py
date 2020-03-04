@@ -81,9 +81,10 @@ class Infer():
                     DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
                     if len(files) == 3: ### contain ref alignments
                         crit_align = Align()
+                        y = (torch.as_tensor(batch.matrix) * -2.0) + 1.0 
                         if self.cuda:
                             crit_align = crit_align.cuda()
-                        y = (torch.as_tensor(batch.matrix) * -2.0) + 1.0 
+                            y = y.cuda()
                         loss, nok, npred = crit_align(DP_st,y,s_mask,t_mask)
                         print(loss,nok,npred)
 
