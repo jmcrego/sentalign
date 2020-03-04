@@ -101,7 +101,7 @@ class Infer():
 
 def print_matrix(DP_st, src, tgt, DP):
     align = []
-    if isinstance(DP,int):
+    if isinstance(DP,float):
         align.append(['{:.6f}'.format(DP)] + src)
     else:
         align.append(['{}'.format(DP)] + src)
