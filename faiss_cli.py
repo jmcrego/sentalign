@@ -70,6 +70,7 @@ def results(D,I,k,db,query,query_is_db,verbose):
             if query.txts():
                 out[-1] += " {}".format(query.txt[i])
             for j in range(len(I[i])):
+                print("i={} j={} I[i,j]={}".format(i,j,I[i,j]))
                 if query_is_db and i == I[i,j]:
                     continue
                 out.append("{}:{:.4f}".format(I[i,j],D[i,j]))
