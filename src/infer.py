@@ -68,9 +68,7 @@ class Infer():
         else:
             logging.error('2 or 3 files must be passed for inference')
             sys.exit()
-
         self.data_test.build_batches()
-
 
         with torch.no_grad():
             self.model.eval() ### avoids dropout
@@ -81,15 +79,14 @@ class Infer():
                 DP = torch.bmm(s.unsqueeze(-2), t.unsqueeze(-1)).squeeze(-1).squeeze(-1).cpu().detach().numpy() #[bs, 1, 1] => [bs]
                 if self.matrix:
                     DP_st = torch.bmm(hs, torch.transpose(ht, 2, 1)) #[bs, sl, es] x [bs, es, tl] = [bs, sl, tl]            
+                if len(files) == 3: ### contain ref alignments
+                    print(st_matrix)
 
                 ### output
                 for b in range(len(DP)):
+                    print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
                     if self.matrix:
-                        print(batch.indexs[b])
                         print_matrix(DP_st[b], batch.src[b], batch.tgt[b], DP[b])
-                    else:
-                        print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
-
                     if self.layer is not None and self.head is not None:
                         my_attn = self.model.encoder.layers[self.layer].self_attn.attn[0, self.head].cpu().detach().numpy()
                         print_matrix(my_attn, ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], ['<cls>']+batch.src[b]+['<sep>']+batch.tgt[b], 'l{}h{}'.format(self.layer,self.head))
