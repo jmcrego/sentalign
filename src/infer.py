@@ -86,7 +86,10 @@ class Infer():
                             crit_align = crit_align.cuda()
                             y = y.cuda()
                         loss, nok, npred = crit_align(DP_st,y,s_mask,t_mask)
-                        print(loss.cpu().detach().numpy(),nok.cpu().detach().numpy(),npred.cpu().detach().numpy())
+                        loss = loss.cpu().detach().numpy()
+                        nok = nok.cpu().detach().numpy()
+                        npred = npred.cpu().detach().numpy()
+                        print("loss={:.4f} Acc={:.4f}/{}".format(loss,1.0*nok/npred,npred))
 
                 ### output
                 for b in range(len(DP)):
