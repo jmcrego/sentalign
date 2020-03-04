@@ -97,8 +97,8 @@ class Infer():
                     if len(files) == 3:
                         DP_st_b = DP_st[b].unsqueeze(0)
                         y_b = y[b].unsqueeze(0)
-                        s_mask = s_mask[b].unsqueeze(0)
-                        t_mask = t_mask[b].unsqueeze(0)
+                        s_mask_b = s_mask[b].unsqueeze(0)
+                        t_mask_b = t_mask[b].unsqueeze(0)
                         loss, nok, npred = crit_align(DP_st_b,y_b,s_mask_b,t_mask_b)
                         loss = loss.cpu().detach().numpy()
                         nok = nok.cpu().detach().numpy()
