@@ -83,6 +83,7 @@ class Infer():
                 ### output
                 for b in range(len(DP)):
                     if self.matrix:
+                        print(index)
                         print_matrix(DP_st[b], batch.src[b], batch.tgt[b], DP[b], batch.indexs[b])
                     else:
                         print("{}\t{:.6f}\t{}\t{}".format(batch.indexs[b],DP[b],' '.join(batch.src[b]),' '.join(batch.tgt[b])))
@@ -114,5 +115,4 @@ def print_matrix(DP_st, src, tgt, DP, index):
     lens = [max(map(len, col)) for col in zip(*align)]
     fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
     table = [fmt.format(*row) for row in align]
-    print(index)
     print('\n'.join(table))
