@@ -70,7 +70,7 @@ class IndexFaiss:
         logging.info("read {} vectors".format(self.index.ntotal))
 
 
-    def Query(self,file,d,k,file_str,skip_same_id,min_score):
+    def Query(self,file,d,k,file_str,min_score,skip_same_id,skip_query):
         if file == self.file_db:
             query = copy.deepcopy(self.db)
         else:
@@ -82,6 +82,7 @@ class IndexFaiss:
         #D[i,j] contains the corresponding score
         if file == self.file_db:
             n_ok = [0.0] * k
+
         for i_query in range(len(I)): #for each sentence in query
             ### to compute accuracy in case query is db
             if file == self.file_db:
@@ -90,9 +91,10 @@ class IndexFaiss:
                         n_ok[j] += 1.0
             ### output
             out = []
-            out.append(str(i_query))
-            if file_str is not None and query.txts():
-                out.append(query.txt[i_query])
+            if not skip_query:
+                out.append(str(i_query))
+                if file_str is not None and query.txts():
+                    out.append(query.txt[i_query])
             for j in range(len(I[i_query])):
                 i_db = I[i_query,j]
                 score = D[i_query,j]
@@ -148,9 +150,10 @@ if __name__ == '__main__':
     k = 1
     min_score = 0.1
     skip_same_id = False
+    skip_query = False
     verbose = False
     name = sys.argv.pop(0)
-    usage = '''usage: {} -db FILE -query FILE [-db_str FILE] [-query_str FILE] [-d INT] [-k INT] [-skip_same_id] [-v]
+    usage = '''usage: {} -db FILE -query FILE [-db_str FILE] [-query_str FILE] [-d INT] [-k INT] [-skip_same_id] [-skip_query] [-v]
     -db         FILE : file to index 
     -db_str     FILE : file to index 
     -query      FILE : file with queries
@@ -159,6 +162,7 @@ if __name__ == '__main__':
     -k           INT : k-best to retrieve (default 1)
     -min_score FLOAT : minimum distance to accept a match (default 0.1) 
     -skip_same_id    : do not consider matchs with query_id == db_id (k+1 matchs retrieved)
+    -skip_query      : do not output queries (initial columns)
     -v               : verbose output (default False)
     -h               : this help
 '''.format(name)
@@ -186,6 +190,8 @@ if __name__ == '__main__':
             min_score = float(sys.argv.pop(0))
         elif tok=="-skip_same_id":
             skip_same_id = True
+        elif tok=="-skip_query":
+            skip_query = True
         else:
             sys.stderr.write('error: unparsed {} option\n'.format(tok))
             sys.stderr.write("{}".format(usage))
@@ -199,7 +205,7 @@ if __name__ == '__main__':
     if fquery is not None:
         if skip_same_id:
             k += 1
-        indexdb.Query(fquery,d,k,fquery_str,skip_same_id,min_score)
+        indexdb.Query(fquery,d,k,fquery_str,min_score,skip_same_id,skip_query)
 
 
 
