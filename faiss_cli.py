@@ -92,7 +92,7 @@ class IndexFaiss:
             ### output
             out = []
             if not skip_query:
-                out.append(str(i_query))
+                out.append(str(i_query+1))
                 if file_str is not None and query.txts():
                     out.append(query.txt[i_query])
             for j in range(len(I[i_query])):
@@ -102,7 +102,7 @@ class IndexFaiss:
                     continue
                 if skip_same_id and i_query == i_db: ### skip
                     continue
-                out.append("{}：{:.6f}".format(i_db,score))
+                out.append("{:.6f}：{}".format(score,i_db+1))
                 if self.db.txts():
                     out.append(self.db.txt[i_db])
             print('\t'.join(out))
