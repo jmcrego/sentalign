@@ -67,7 +67,7 @@ def results(D,I,k,db,query,query_is_db):
     for i_query in range(len(I)): #for each sentence in query
         ### to compute accuracy in case query is db
         for j in range(k):
-            if i in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
+            if i_query in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
                 n_ok[j] += 1.0
         ### output
         out = []
