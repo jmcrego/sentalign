@@ -59,6 +59,8 @@ class Infile:
 
 
 def results(D,I,k,db,query,query_is_db):
+    assert len(D) == len(I)
+    assert len(D) == len(query)
     #I[i,j] contains for each sentence i in query, the index of the j-th closest sentence in db
     #D[i,j] contains the corresponding score
     n_ok = [0.0] * k
