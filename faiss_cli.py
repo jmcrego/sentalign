@@ -59,16 +59,14 @@ class Infile:
 
 
 def results(D,I,k,db,query,query_is_db,min_score):
-    assert len(D) == len(I)
-    assert len(D) == len(query)
-    #I[i,j] contains for each sentence i in query, the index of the j-th closest sentence in db
-    #D[i,j] contains the corresponding score
-    n_ok = [0.0] * k
+    if query_is_db:
+        n_ok = [0.0] * k
     for i_query in range(len(I)): #for each sentence in query
         ### to compute accuracy in case query is db
-        for j in range(k):
-            if i_query in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
-                n_ok[j] += 1.0
+        if query_is_db:
+            for j in range(k):
+                if i_query in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
+                    n_ok[j] += 1.0
         ### output
         out = []
         out.append(str(i_query))
@@ -86,9 +84,11 @@ def results(D,I,k,db,query,query_is_db,min_score):
                 out.append(db.txt[i_db])
         print('\t'.join(out))
 
-    n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
-    sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
-
+    if query_is_db:
+        n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
+        sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
+    else:
+        sys.stderr.write('Done over {} examples\n'.format(len(query)))
 
 class IndexFaiss:
 
@@ -103,6 +103,10 @@ class IndexFaiss:
     def Query(self,file,d,k,file_str,query_is_db,min_score):
         query = Infile(file, d, norm=True, file_str=file_str)
         D, I = self.index.search(query.vec, k)
+        #I[i,j] contains the index in db of the j-th closest sentence to the i-th sentence in query
+        #D[i,j] contains the corresponding score
+        assert len(D) == len(I)
+        assert len(D) == len(query)
         results(D,I,k,self.db,query,query_is_db,min_score)
 
 '''
