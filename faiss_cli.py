@@ -62,22 +62,23 @@ def results(D,I,k,db,query,query_is_db):
     #I[i,j] contains for each sentence i in query, the index of the j-th closest sentence in db
     #D[i,j] contains the corresponding score
     n_ok = [0.0] * k
-    for i in range(len(I)): #for each sentence in query
+    for i_query in range(len(I)): #for each sentence in query
         ### to compute accuracy in case query is db
         for j in range(k):
-            if i in I[i,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
+            if i in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
                 n_ok[j] += 1.0
         ### output
         out = []
-        out.append(str(i))
+        out.append(str(i_query))
         if query.txts():
-            out.append(query.txt[i])
-        for j in range(len(I[i])):
-            if query_is_db and i == I[i,j]: ### skip this
-                continue
-            out.append("{}:{:.9f}".format(I[i,j],D[i,j]))
-            if db.txts():
-                out.append(db.txt[I[i,j]])
+            out.append(query.txt[i_query])
+        for j in range(len(I[i_query])):
+            i_db = I[i_query,j]
+            score = D[i_query,j]
+            if not query_is_db or i_query != i_db: ### do not skip this
+                out.append("{}:{:.9f}".format(i_db,score))
+                if db.txts():
+                    out.append(db.txt[i_db])
             print('\t'.join(out))
 
     n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
