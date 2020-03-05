@@ -14,6 +14,7 @@ from faiss import normalize_L2
 class Infile:
 
     def __init__(self, file, d, norm=True,file_str=None):
+        self.file = file
         self.vec = []
         self.txt = []
 
@@ -59,38 +60,6 @@ class Infile:
         return len(self.txt)>0
 
 
-def results(D,I,k,db,query,query_is_db,min_score):
-    if query_is_db:
-        n_ok = [0.0] * k
-    for i_query in range(len(I)): #for each sentence in query
-        ### to compute accuracy in case query is db
-        if query_is_db:
-            for j in range(k):
-                if i_query in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
-                    n_ok[j] += 1.0
-        ### output
-        out = []
-        out.append(str(i_query))
-        if query.txts():
-            out.append(query.txt[i_query])
-        for j in range(len(I[i_query])):
-            i_db = I[i_query,j]
-            score = D[i_query,j]
-            if score < min_score: ### skip
-                continue
-            if query_is_db and i_query == i_db: ### skip
-                continue
-            out.append("{}:{:.9f}".format(i_db,score))
-            if db.txts():
-                out.append(db.txt[i_db])
-        print('\t'.join(out))
-
-    if query_is_db:
-        n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
-        sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
-    else:
-        sys.stderr.write('Done over {} examples\n'.format(len(query)))
-
 class IndexFaiss:
 
     def __init__(self, file, d, file_str=None):
@@ -101,8 +70,8 @@ class IndexFaiss:
         logging.info("read {} vectors".format(self.index.ntotal))
 
 
-    def Query(self,file,d,k,file_str,query_is_db,min_score):
-        if query_is_db:
+    def Query(self,file,d,k,file_str,skip_same_id,min_score):
+        if file == self.file:
             query = copy.deepcopy(self.db)
         else:
             query = Infile(file, d, norm=True, file_str=file_str)
@@ -111,11 +80,11 @@ class IndexFaiss:
         assert len(D) == len(query)
         #I[i,j] contains the index in db of the j-th closest sentence to the i-th sentence in query
         #D[i,j] contains the corresponding score
-        if query_is_db:
+        if file == self.file:
             n_ok = [0.0] * k
         for i_query in range(len(I)): #for each sentence in query
             ### to compute accuracy in case query is db
-            if query_is_db:
+            if file == self.file:
                 for j in range(k):
                     if i_query in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
                         n_ok[j] += 1.0
@@ -129,14 +98,14 @@ class IndexFaiss:
                 score = D[i_query,j]
                 if score < min_score: ### skip
                     continue
-                if query_is_db and i_query == i_db: ### skip
+                if skip_same_id and i_query == i_db: ### skip
                     continue
                 out.append("{}:{:.9f}".format(i_db,score))
                 if self.db.txts():
                     out.append(self.db.txt[i_db])
             print('\t'.join(out))
 
-        if query_is_db:
+        if file == self.file:
             n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
             sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
         else:
@@ -178,10 +147,10 @@ if __name__ == '__main__':
     d = 512
     k = 1
     min_score = 0.1
-    query_is_db = False
+    skip_same_id = False
     verbose = False
     name = sys.argv.pop(0)
-    usage = '''usage: {} -db FILE -query FILE [-db_str FILE] [-query_str FILE] [-query_is_db] [-d INT] [-k INT] [-v]
+    usage = '''usage: {} -db FILE -query FILE [-db_str FILE] [-query_str FILE] [-d INT] [-k INT] [-skip_same_id] [-v]
     -db         FILE : file to index 
     -db_str     FILE : file to index 
     -query      FILE : file with queries
@@ -189,7 +158,7 @@ if __name__ == '__main__':
     -d           INT : vector size (default 512)
     -k           INT : k-best to retrieve (default 1)
     -min_score FLOAT : minimum distance to accept a match (default 0.1) 
-    -query_is_db     : do not consider matchs with query_id == db_id
+    -skip_same_id    : do not consider matchs with query_id == db_id (an additional match is requested)
     -v               : verbose output (default False)
     -h               : this help
 '''.format(name)
@@ -215,8 +184,8 @@ if __name__ == '__main__':
             d = int(sys.argv.pop(0))
         elif tok=="-min_score" and len(sys.argv):
             min_score = float(sys.argv.pop(0))
-        elif tok=="-query_is_db":
-            query_is_db = True
+        elif tok=="-skip_same_id":
+            skip_same_id = True
         else:
             sys.stderr.write('error: unparsed {} option\n'.format(tok))
             sys.stderr.write("{}".format(usage))
@@ -228,9 +197,9 @@ if __name__ == '__main__':
 
 
     if fquery is not None:
-        if query_is_db:
+        if skip_same_id:
             k += 1
-        indexdb.Query(fquery,d,k,fquery_str,query_is_db,min_score)
+        indexdb.Query(fquery,d,k,fquery_str,skip_same_id,min_score)
 
 
 
