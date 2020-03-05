@@ -107,11 +107,44 @@ class IndexFaiss:
         else:
             query = Infile(file, d, norm=True, file_str=file_str)
         D, I = self.index.search(query.vec, k)
-        #I[i,j] contains the index in db of the j-th closest sentence to the i-th sentence in query
-        #D[i,j] contains the corresponding score
         assert len(D) == len(I)
         assert len(D) == len(query)
-        results(D,I,k,self.db,query,query_is_db,min_score)
+        #I[i,j] contains the index in db of the j-th closest sentence to the i-th sentence in query
+        #D[i,j] contains the corresponding score
+        if query_is_db:
+            n_ok = [0.0] * k
+        for i_query in range(len(I)): #for each sentence in query
+            ### to compute accuracy in case query is db
+            if query_is_db:
+                for j in range(k):
+                    if i_query in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
+                        n_ok[j] += 1.0
+            ### output
+            out = []
+            out.append(str(i_query))
+            if file_str is not None and query.txts():
+                out.append(query.txt[i_query])
+            for j in range(len(I[i_query])):
+                i_db = I[i_query,j]
+                score = D[i_query,j]
+                if score < min_score: ### skip
+                    continue
+                if query_is_db and i_query == i_db: ### skip
+                    continue
+                out.append("{}:{:.9f}".format(i_db,score))
+                if self.db.txts():
+                    out.append(self.db.txt[i_db])
+            print('\t'.join(out))
+
+        if query_is_db:
+            n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
+            sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
+        else:
+            sys.stderr.write('Done over {} examples\n'.format(len(query)))
+
+
+
+
 
 '''
 class Index:
