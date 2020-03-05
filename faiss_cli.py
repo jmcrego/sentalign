@@ -158,7 +158,7 @@ if __name__ == '__main__':
     -d           INT : vector size (default 512)
     -k           INT : k-best to retrieve (default 1)
     -min_score FLOAT : minimum distance to accept a match (default 0.1) 
-    -skip_same_id    : do not consider matchs with query_id == db_id (an additional match is requested)
+    -skip_same_id    : do not consider matchs with query_id == db_id (k+1 matchs retrieved)
     -v               : verbose output (default False)
     -h               : this help
 '''.format(name)
