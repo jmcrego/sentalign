@@ -5,6 +5,7 @@ import io
 import gzip
 import faiss
 import torch
+import copy
 import numpy as np
 from torch import nn
 from torch.nn import functional as F
@@ -101,7 +102,10 @@ class IndexFaiss:
 
 
     def Query(self,file,d,k,file_str,query_is_db,min_score):
-        query = Infile(file, d, norm=True, file_str=file_str)
+        if query_is_db:
+            query = copy.deepcopy(self.db)
+        else:
+            query = Infile(file, d, norm=True, file_str=file_str)
         D, I = self.index.search(query.vec, k)
         #I[i,j] contains the index in db of the j-th closest sentence to the i-th sentence in query
         #D[i,j] contains the corresponding score
