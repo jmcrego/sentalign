@@ -100,7 +100,7 @@ class IndexFaiss:
                     continue
                 if skip_same_id and i_query == i_db: ### skip
                     continue
-                out.append("{}:{:.6f}".format(i_db,score))
+                out.append("{}：{:.6f}".format(i_db,score))
                 if self.db.txts():
                     out.append(self.db.txt[i_db])
             print('\t'.join(out))
