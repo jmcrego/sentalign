@@ -187,6 +187,8 @@ if __name__ == '__main__':
 
 
     if fquery is not None:
+        if query_is_db:
+            k += 1
         indexdb.Query(fquery,d,k,fquery_str,query_is_db,min_score)
 
 
