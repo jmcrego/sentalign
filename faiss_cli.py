@@ -58,7 +58,7 @@ class Infile:
         return len(self.txt)>0
 
 
-def results(D,I,k,db,query,query_is_db,min_p):
+def results(D,I,k,db,query,query_is_db,min_score):
     assert len(D) == len(I)
     assert len(D) == len(query)
     #I[i,j] contains for each sentence i in query, the index of the j-th closest sentence in db
@@ -77,7 +77,7 @@ def results(D,I,k,db,query,query_is_db,min_p):
         for j in range(len(I[i_query])):
             i_db = I[i_query,j]
             score = D[i_query,j]
-            if score < min_p: ### skip
+            if score < min_score: ### skip
                 continue
             if query_is_db and i_query == i_db: ### skip
                 continue
@@ -100,10 +100,10 @@ class IndexFaiss:
         logging.info("read {} vectors".format(self.index.ntotal))
 
 
-    def Query(self,file,d,k,file_str,query_is_db,min_p):
+    def Query(self,file,d,k,file_str,query_is_db,min_score):
         query = Infile(file, d, norm=True, file_str=file_str)
         D, I = self.index.search(query.vec, k)
-        results(D,I,k,self.db,query,query_is_db,min_p)
+        results(D,I,k,self.db,query,query_is_db,min_score)
 
 '''
 class Index:
@@ -136,21 +136,21 @@ if __name__ == '__main__':
     fquery_str = None
     d = 512
     k = 1
-    min_p = 0.1
+    min_score = 0.1
     query_is_db = False
     verbose = False
     name = sys.argv.pop(0)
     usage = '''usage: {} -db FILE -query FILE [-db_str FILE] [-query_str FILE] [-query_is_db] [-d INT] [-k INT] [-v]
-    -db        FILE : file to index 
-    -db_str    FILE : file to index 
-    -query     FILE : file with queries
-    -query_str FILE : file with queries
-    -d          INT : vector size (default 512)
-    -k          INT : k-best to retrieve (default 1)
-    -min_p.   FLOAT : minimum distance to accept a match (default 0.1) 
-    -query_is_db    : do not consider matchs with query_id == db_id
-    -v              : verbose output (default False)
-    -h              : this help
+    -db         FILE : file to index 
+    -db_str     FILE : file to index 
+    -query      FILE : file with queries
+    -query_str  FILE : file with queries
+    -d           INT : vector size (default 512)
+    -k           INT : k-best to retrieve (default 1)
+    -min_score FLOAT : minimum distance to accept a match (default 0.1) 
+    -query_is_db     : do not consider matchs with query_id == db_id
+    -v               : verbose output (default False)
+    -h               : this help
 '''.format(name)
 
     while len(sys.argv):
@@ -172,8 +172,8 @@ if __name__ == '__main__':
             k = int(sys.argv.pop(0))
         elif tok=="-d" and len(sys.argv):
             d = int(sys.argv.pop(0))
-        elif tok=="-min_p" and len(sys.argv):
-            min_p = float(sys.argv.pop(0))
+        elif tok=="-min_score" and len(sys.argv):
+            min_score = float(sys.argv.pop(0))
         elif tok=="-query_is_db":
             query_is_db = True
         else:
@@ -187,7 +187,7 @@ if __name__ == '__main__':
 
 
     if fquery is not None:
-        indexdb.Query(fquery,d,k,fquery_str,query_is_db,min_p)
+        indexdb.Query(fquery,d,k,fquery_str,query_is_db,min_score)
 
 
 
