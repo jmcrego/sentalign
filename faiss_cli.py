@@ -81,7 +81,7 @@ def results(D,I,k,db,query,query_is_db):
                 out.append("{}:{:.9f}".format(i_db,score))
                 if db.txts():
                     out.append(db.txt[i_db])
-            print('\t'.join(out))
+        print('\t'.join(out))
 
     n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
     sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
