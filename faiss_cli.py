@@ -80,11 +80,11 @@ class IndexFaiss:
         assert len(D) == len(query)
         #I[i,j] contains the index in db of the j-th closest sentence to the i-th sentence in query
         #D[i,j] contains the corresponding score
-        if file == self.file:
+        if file == self.file_db:
             n_ok = [0.0] * k
         for i_query in range(len(I)): #for each sentence in query
             ### to compute accuracy in case query is db
-            if file == self.file:
+            if file == self.file_db:
                 for j in range(k):
                     if i_query in I[i_query,0:j+1]: #if the same index 'i' (current index) is found int the j-best retrieved sentences
                         n_ok[j] += 1.0
@@ -105,7 +105,7 @@ class IndexFaiss:
                     out.append(self.db.txt[i_db])
             print('\t'.join(out))
 
-        if file == self.file:
+        if file == self.file_db:
             n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
             sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
         else:
