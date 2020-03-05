@@ -63,7 +63,7 @@ class Infile:
 class IndexFaiss:
 
     def __init__(self, file, d, file_str=None):
-
+        self.file_db = file
         self.db = Infile(file, d, norm=True, file_str=file_str)
         self.index = faiss.IndexFlatIP(d) #inner product (needs L2 normalization over db and query vectors)
         self.index.add(self.db.vec) # add all normalized vectors to the index
@@ -71,7 +71,7 @@ class IndexFaiss:
 
 
     def Query(self,file,d,k,file_str,skip_same_id,min_score):
-        if file == self.file:
+        if file == self.file_db:
             query = copy.deepcopy(self.db)
         else:
             query = Infile(file, d, norm=True, file_str=file_str)
