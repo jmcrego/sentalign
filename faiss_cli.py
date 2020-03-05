@@ -28,9 +28,12 @@ class Infile:
                 sys.exit()
             self.vec.append(l)
 
+        sys.stderr.write('Read {} vectors in {}\n'.format(len(self.vec),file))
         self.vec = np.array(self.vec).astype('float32')
+
         if norm:
             faiss.normalize_L2(self.vec)
+            sys.stderr.write('Vectors normalized\n')
 
         if file_str is None:
             return
@@ -42,6 +45,7 @@ class Infile:
 
         for l in f:
             self.txt.append(l.rstrip())
+        sys.stderr.write('Read {} strings in {}\n'.format(len(self.txt),file_str))
 
         if len(self.txt) != len(self.vec):
             logging.error('diff num of entries {} <> {} in files {} and {}'.format(len(self.vec),len(self.txt),file, file_str))
