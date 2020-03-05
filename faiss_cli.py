@@ -84,7 +84,7 @@ def results(D,I,k,db,query,query_is_db):
             print('\t'.join(out))
 
     n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
-    print('Done k-best Acc = [{}] over {} examples'.format(', '.join(n_ok),len(query)))
+    sys.stderr.write('Done k-best Acc = [{}] over {} examples\n'.format(', '.join(n_ok),len(query)))
 
 
 class IndexFaiss:
