@@ -77,10 +77,11 @@ def results(D,I,k,db,query,query_is_db):
         for j in range(len(I[i_query])):
             i_db = I[i_query,j]
             score = D[i_query,j]
-            if not query_is_db or i_query != i_db: ### do not skip this
-                out.append("{}:{:.9f}".format(i_db,score))
-                if db.txts():
-                    out.append(db.txt[i_db])
+            if query_is_db and i_query == i_db: ### skip
+                continue
+            out.append("{}:{:.9f}".format(i_db,score))
+            if db.txts():
+                out.append(db.txt[i_db])
         print('\t'.join(out))
 
     n_ok = ["{:.3f}".format(n/len(query)) for n in n_ok]
